@@ -4,8 +4,7 @@
 #include <ctime>
 #include <windows.h>
 
-#include "SDL3/SDL_init.h"
-#include "SDL3/SDL_render.h"
+#include "SDL3/SDL.h"
 
 #include "qg_bus.hpp"
 #include "qg_config.hpp"
@@ -18,7 +17,6 @@
 
 #define GAMELIB_BASE_PATH "./gr.dll"
 #define GAMELIB_LOAD_PATH "./gr_loaded.dll"
-
 
 #define X(ret, name, sym, args) typedef ret (*name##_t) args;
 GAME_MODULE_DEF
@@ -84,15 +82,20 @@ config *root_cfg;
 
 // ------------- ENGINE - MAIN
 
-#define VERSION "ALPHA" //TODO: Export version from the main game DLL
-#define TITLE "QG-ChainLinks"
-#define WIDTH 800
-#define HEIGHT 600
+#define WINDOW_VERSION "ALPHA" //TODO: Export version from the main game DLL
+#define WINDOW_TITLE "Grav - 85"
+#define WINDOW_WIDTH 800
+#define WINDOW_HEIGHT 600
+#define WINDOW_FPS 60
 
+static const u64 NS_PER_FRAME = (1000 * 1000 * 1000 / WINDOW_FPS);
+static const u64 MAX_LAG_TIME = NS_PER_FRAME * 5; // Cap catchup to 5 ticks
+static const f32 FRAME_TIME = SDL_NS_TO_SECONDS((f32)NS_PER_FRAME);
 bool g_running = true;
 
 int main(int argc, char **argv) {
     rand_seed(time(NULL));
+
     if (!SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO)) {
         printf("Could not init SDL3\nerror: %s\n", SDL_GetError());
         return EXIT_FAILURE;
@@ -101,8 +104,12 @@ int main(int argc, char **argv) {
 
     SDL_Window *window;
     SDL_Renderer *context;
-    if (!SDL_CreateWindowAndRenderer("[" VERSION "]" TITLE, 800, 600, 0, &window, &context)) {
+    if (!SDL_CreateWindowAndRenderer("[" WINDOW_VERSION "] " WINDOW_TITLE, WINDOW_WIDTH, WINDOW_HEIGHT, 0, &window, &context)) {
         printf("Could not create Window or Renderer\nerror: %s\n", SDL_GetError());
+        return EXIT_FAILURE;
+    }
+    if (!SDL_SetRenderVSync(context, 1)) {
+        printf("Could not set vsync on Renderer\nerror: %s\n", SDL_GetError());
         return EXIT_FAILURE;
     }
     gamelib_load();
@@ -122,8 +129,19 @@ int main(int argc, char **argv) {
 
     game_init(g_eng);
 
+    u64 last_time = SDL_GetTicksNS();
+    u64 lag_time = 0;
     SDL_Event event;
     while (g_running) {
+
+        u64 this_time = SDL_GetTicksNS();
+        u64 elapsed = this_time - last_time;
+        last_time = this_time;
+        lag_time += elapsed;
+
+        // Prevent spiral of death: if we fall too far behind (debugger pause,
+        // window drag, etc.), cap the lag so we don't run hundreds of ticks
+        if (lag_time > MAX_LAG_TIME) lag_time = MAX_LAG_TIME;
 
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_EVENT_QUIT) {
@@ -134,14 +152,25 @@ int main(int argc, char **argv) {
             }
         }
 
+        while (lag_time >= NS_PER_FRAME) {
+            game_tick(FRAME_TIME);
+            bus_process(g_eng.bus);
+
+            lag_time -= NS_PER_FRAME;
+        }
+
         // Draw current frame
         SDL_SetRenderDrawColor(context, 0, 0, 0, 255);
         SDL_RenderFillRect(context, NULL);
 
-        SDL_RenderPresent(context);
-    }
+        game_draw(SDL_NS_TO_SECONDS((f32)elapsed));
 
+        SDL_RenderPresent(context);
+
+    }
+    game_exit();
     gamelib_free();
+
     SDL_DestroyWindow(window);
     SDL_Quit();
     printf("[QG] quitting SDL3!\n");
