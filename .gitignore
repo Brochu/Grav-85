@@ -46,6 +46,8 @@ bin/*.exe
 bin/*.pdb
 bin/*.ilk
 
+bin/gr*
+
 build/
 *.obj
 *.o
