@@ -1,0 +1,60 @@
+<Project DefaultTargets="qg" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <libs_dir>libs</libs_dir>
+        <build_dir>build</build_dir>
+        <bin_dir>bin</bin_dir>
+
+        <includes>-Igrav\ -Iengine\ -Ishared\ -Ilibs\SDL3-3.4.0\</includes>
+        <c_flags>-nologo -c -std:c++17 -EHsc -Zi -MD -Fo$(build_dir)\ $(includes) -TP</c_flags>
+        <lib_flags>-nologo</lib_flags>
+        <link_flags>-NOLOGO -DEBUG -LIBPATH:$(libs_dir)\SDL3-3.4.0\</link_flags>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <clean_files Include="$(build_dir)\*.*;$(bin_dir)\qg*.*;$(bin_dir)\gr*.*;vc140*.*;" />
+    </ItemGroup>
+
+    <!-- === CLEAN === -->
+    <Target Name="clean">
+        <Delete Files="@(clean_files)" ContinueOnError="true" />
+    </Target>
+
+    <!-- === IMGUI === -->
+    <!-- EXAMPLE
+    <Target Name="imgui">
+        <Exec Command="cl $(CFlags) -Iinclude -Iinclude\imgui -Iinclude\raylib ^
+            src\imgui\imgui.cpp src\imgui\imgui_draw.cpp src\imgui\imgui_tables.cpp ^
+            src\imgui\imgui_widgets.cpp src\imgui\imgui_demo.cpp src\imgui\rlImGui.cpp" />
+        <Exec Command="lib $(LibFlags) obj\imgui*.obj obj\rlImGui.obj -out:$(LibDir)\imgui.lib" />
+    </Target>
+    -->
+
+    <Target Name="gr">
+        <Exec Command="cl $(c_flags) grav\~grav.cpp" />
+        <Exec Command="link $(link_flags) -DLL $(build_dir)\~grav.obj SDL3.lib -out:$(bin_dir)\gr.dll" />
+    </Target>
+
+    <!-- === FORGE MAIN === -->
+    <!-- EXAMPLE
+    <Target Name="forge" DependsOnTargets="blksm;s-blksm">
+        <Exec Command="rc -nologo -v -fo obj\res_main.res src\res_main.rc" />
+        <Exec Command="move gamelibs\blksm.dll blksm.dll" />
+        <Exec Command="move gamelibs\blksm.pdb blksm.pdb" />
+        <Exec Command="move gamelibs\server-blksm.dll server-blksm.dll" />
+        <Exec Command="move gamelibs\server-blksm.pdb server-blksm.pdb" />
+        <Exec Command="cl $(CFlags) -DTRACY_ENABLE -DTRACY_IMPORTS -Iinclude -Iinclude\raylib -Iinclude\imgui -Iinclude\tracy src\forge_main.cpp src\forge_utils.cpp" />
+        <Exec Command="link $(LinkFlags) obj\forge_main.obj obj\forge_utils.obj obj\res_main.res imgui.lib raylib.lib TracyProfiler.lib ws2_32.lib winmm.lib user32.lib gdi32.lib enet.lib -out:forge.exe" />
+        <Exec Command="copy libs\raylib.dll raylib.dll" />
+        <Exec Command="copy libs\TracyProfiler.dll TracyProfiler.dll" />
+    </Target>
+    -->
+    <Target Name="qg">
+        <Exec Command="rc -nologo -v -Fo $(build_dir)\resources.res engine\resources.rc" />
+        <Exec Command="cl $(c_flags) engine\~qg.cpp" />
+        <Exec Command="link $(link_flags) $(build_dir)\~qg.obj $(build_dir)\resources.res SDL3.lib -out:$(bin_dir)\qg.exe" />
+    </Target>
+
+    <Target Name="all" DependsOnTargets="gr;qg">
+        <Message Text="=== Build complete: gr -> qg ===" Importance="high" />
+    </Target>
+</Project>

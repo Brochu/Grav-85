@@ -1,0 +1,6 @@
+-std=c++17
+-I./grav/
+-I./engine/
+-I./shared/
+-I./libs/SDL3-3.4.0/
+-D__cplusplus
