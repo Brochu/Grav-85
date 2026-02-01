@@ -11,7 +11,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <clean_files Include="$(build_dir)\*.*;$(bin_dir)\qg*.*;$(bin_dir)\gr*.*;vc140*.*;" />
+        <clean_files Include="$(build_dir)\*.*;$(bin_dir)\qg*.*;$(bin_dir)\gr*.*;$(bin_dir)\vc140*.*;" />
     </ItemGroup>
 
     <!-- === CLEAN === -->
@@ -32,6 +32,8 @@
     <Target Name="gr">
         <Exec Command="cl $(c_flags) grav\~grav.cpp" />
         <Exec Command="link $(link_flags) -DLL $(build_dir)\~grav.obj SDL3.lib -out:$(bin_dir)\gr.dll" />
+
+        <Move SourceFiles="vc140.pdb" DestinationFolder="$(bin_dir)" />
     </Target>
 
     <!-- === FORGE MAIN === -->
@@ -52,6 +54,8 @@
         <Exec Command="rc -nologo -v -Fo $(build_dir)\resources.res engine\resources.rc" />
         <Exec Command="cl $(c_flags) engine\~qg.cpp" />
         <Exec Command="link $(link_flags) $(build_dir)\~qg.obj $(build_dir)\resources.res SDL3.lib -out:$(bin_dir)\qg.exe" />
+
+        <Move SourceFiles="vc140.pdb" DestinationFolder="$(bin_dir)" />
     </Target>
 
     <Target Name="all" DependsOnTargets="gr;qg">
