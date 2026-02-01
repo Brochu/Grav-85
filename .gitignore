@@ -53,3 +53,6 @@ build/
 *.o
 
 *.rdi
+
+.claude/
+CLAUDE.md
