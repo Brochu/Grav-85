@@ -51,6 +51,9 @@ struct strview;
     X(i32, rand_int_min, (i32, i32))  \
     X(i8, rand_actor_age, (void))
 
+//TODO: Look into having a separate renderer based off of SDL3, could also make it hot-reloadable?
+struct SDL_Renderer;
+
 struct engine_api {
     #define X(ret, name, params) ret (*name) params;
 
@@ -63,6 +66,9 @@ struct engine_api {
     #undef X
 
     event_bus *bus;
+
+    // RENDERER --------------
+    SDL_Renderer *context;
 };
 
 extern engine_api g_eng;

@@ -125,6 +125,8 @@ int main(int argc, char **argv) {
 
     bus_init(&g_bus, 2 * 1024 * 1024);
     g_eng.bus = &g_bus;
+
+    g_eng.context = context;
     // -----------------------------------------
 
     game_init(g_eng);
