@@ -24,12 +24,31 @@
 ## Levels Structure
 
 - Levels is a 2d grid with 4 different types of elements
-    * EMPTY - invisible space
+    * EMPTY - invisible space, blocks and orbs pass through
     * SOLID - wall space, renders, will never move
     * BLOCK - wall type, renders, moves based on gravity changes, blocks combos
-    * ORB   - orbs, renders, vfx, moves based on gravity chances, has a color, will combo with same color in 4 directions (top, left, down, right)
-- FORMAT
-- DATA TYPES
+    * STONE - gemstones, renders, vfx, moves based on gravity chances, has a color, will combo with same color in 4 directions (top, left, down, right)
+- Data Types
+    * enum for spaces
+    * enum for stone colors (limit to 3 colors MAX)
+    * since we have 4 space types and 3 colors, we can store both using int2 to pack data the best we can
+- Data format on disk
+    * dimensions: width, height (i8, i8)
+    * colors array: size (i8) | i2 array, max size 128, represents the colors of the stone, order from spaces array
+    * spaces array: i2 array, max size 128x128, will never reach even close to this
+
+### Demo Level
+
+```
+6,6 (dims)
+3|G,G,G (colors: len | list)
+# # # # # #
+# 0 X     #
+#         #
+# 1       #
+#     2 # #
+# # # # # #
+```
 
 ## Gameplay
 

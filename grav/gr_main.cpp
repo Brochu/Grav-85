@@ -1,6 +1,7 @@
 #include <cstdio>
 
 #include "qg_bus.hpp"
+#include "qg_config.hpp"
 #include "qg_memory.hpp"
 #include "qg_parse.hpp"
 #include "qg_random.hpp"
@@ -9,6 +10,47 @@
 #include "SDL3/SDL.h"
 
 engine_api g_api {};
+
+enum class space : i8 {
+    EMPTY,
+    SOLID,
+    BLOCK,
+    STONE,
+};
+
+enum class color : i8 {
+    RED,
+    GREEN,
+    BLUE,
+};
+
+enum class direction : i8 {
+    UP,
+    RIGHT,
+    DOWN,
+    LEFT,
+};
+
+#define STONES_MAX_NUM 128
+#define MAP_MAX_SIZE 128*128
+
+struct level {
+    i8 width;
+    i8 height;
+    direction start_gravity;
+    color stone_colors[STONES_MAX_NUM];
+    space map[MAP_MAX_SIZE];
+};
+
+void level_file_init(level *lvl, const char *file_path) { }
+void level_data_init(level *lvl, arena_ptr data) { }
+
+struct run {
+    direction current_gravity;
+    //TODO: How do we represent the current map status - based off of map from level
+};
+
+void run_level_init(run *run, level *lvl) { }
 
 void grav_init(engine_api api) {
     g_api = api;
@@ -27,21 +69,17 @@ void grav_init(engine_api api) {
         printf("%f\n", val);
     }
 
-    /*
     config cfg;
-    g_api.config_init(&cfg, "../assets/city_gen.ini");
+    g_api.config_init(&cfg, "assets/game.cfg");
     printf("CONFIG VALUE = %d\n", cfg.value);
     config_value val;
-    if (g_api.config_read(&cfg, "ComposedWordLengthMax", &val)) {
-        printf(" ComposedWordLengthMax -> '%d'\n", val.single);
+    if (g_api.config_read(&cfg, "gravity_speed", &val)) {
+        printf(" Gravity Speed -> '%d'\n", val.single);
     }
-    if (g_api.config_read(&cfg, "CrimeRandomRange", &val)) {
-        printf(" CrimeRandomRange -> ['%d', '%d']\n", val.range.min, val.range.max);
+    if (g_api.config_read(&cfg, "levels_per_round", &val)) {
+        printf(" Levels Per Round -> '%d'\n", val.single);
     }
-    if (g_api.config_read(&cfg, "AssetsHomeDir", &val)) {
-        printf(" AssetsHomeDir -> '%s'\n", val.str.arr);
-    }
-    */
+    g_api.config_free(&cfg);
 
     u8 ws[2] = { 25, 12 };
     for (int i = 0; i < 10; i++) {
