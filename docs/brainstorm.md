@@ -29,18 +29,28 @@
     * BLOCK - wall type, renders, moves based on gravity changes, blocks combos
     * STONE - gemstones, renders, vfx, moves based on gravity chances, has a color, will combo with same color in 4 directions (top, left, down, right)
 - Data Types
-    * enum for spaces
-    * enum for stone colors (limit to 3 colors MAX)
+    * enum for spaces (i8)
+    * enum for stone colors (limit to 3 colors MAX) (i8); red, green, blue
+    * enum for directions (i8); up, right, down, left; can also be packed to i2
     * since we have 4 space types and 3 colors, we can store both using int2 to pack data the best we can
 - Data format on disk
     * dimensions: width, height (i8, i8)
+    * starting gravity direction
     * colors array: size (i8) | i2 array, max size 128, represents the colors of the stone, order from spaces array
     * spaces array: i2 array, max size 128x128, will never reach even close to this
+- Level Filesize (in mem)
+    * dims -> 2xi8 -> 2bytes
+    * start_gravity -> i8 -> 1byte
+    * colors len -> i8 -> 1 byte
+    * colors arr -> max 32 -> i2 each -> 8bytes
+    * spaces arr -> max 32x32 -> i2 each -> 16bytes
+    * total = 2 + 1 + 1 + 8 + 16 -> 28 bytes
 
 ### Demo Level
 
 ```
 6,6 (dims)
+2 (start_gravity)
 3|G,G,G (colors: len | list)
 # # # # # #
 # 0 X     #

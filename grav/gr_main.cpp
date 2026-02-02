@@ -31,8 +31,8 @@ enum class direction : i8 {
     LEFT,
 };
 
-#define STONES_MAX_NUM 128
-#define MAP_MAX_SIZE 128*128
+#define STONES_MAX_NUM 32
+#define MAP_MAX_SIZE 32*32
 
 struct level {
     i8 width;
