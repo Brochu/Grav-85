@@ -32,3 +32,7 @@
 - DATA TYPES
 
 ## Gameplay
+
+- De-couple elements positions w/ visuals to better handle animations
+- Each time elements all stop moving we need to check for combos
+    * handle chains
