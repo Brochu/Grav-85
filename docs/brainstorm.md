@@ -58,7 +58,18 @@
 # 1 . . . #
 # . . 2 # #
 # # # # # #
+
+11111110 00011000 01100001 10001111 1111
 ```
+
+- u8  -> packed width/height
+- u8  -> start gravity
+- u8  -> num crates
+- u8  -> num gems
+- u64 -> colors data
+- u8  -> x32 crates starts
+- u8  -> x32 gem starts
+- u8  -> x32 solid map - 256 bits
 
 ## Gameplay
 

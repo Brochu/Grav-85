@@ -1,5 +1,6 @@
 #include <cstdio>
 
+#include "SDL3/SDL_timer.h"
 #include "qg_bus.hpp"
 #include "qg_config.hpp"
 #include "qg_math.hpp"
@@ -12,33 +13,41 @@
 
 engine_api g_api {};
 
-enum class space : u8 {
-    SOLID,
-    EMPTY,
-    CRATE,
-    GEM,
-};
-
 enum class color : u8 {
     RED,
     GREEN,
     BLUE,
 };
+constexpr i32 colors_def[3][4] = {
+    { 255, 0  , 0  , 255 },
+    { 0  , 255, 0  , 255 },
+    { 0  , 0  , 255, 255 },
+};
 
-#define GEMS_MAX_NUM 32
-#define MAP_MAX_SIZE 16*16
-#define LEVEL_FILE_SIZE 76
+#define ELEMENTS_MAX_NUM 32
+#define MAP_MAX_SIZE 256
+#define LEVEL_FILE_SIZE 108
 
 struct level {
+    u8 solid[MAP_MAX_SIZE / 8];       // 1 bit per cell
+    ivec2 crate_starts[ELEMENTS_MAX_NUM];
+    ivec2 gem_starts[ELEMENTS_MAX_NUM];
+    color gem_colors[ELEMENTS_MAX_NUM];
+    direction start_gravity;
     i8 width;
     i8 height;
-    direction start_gravity;
-
-    i8 num_colors;
-    color gem_colors[GEMS_MAX_NUM];
-
-    space map[MAP_MAX_SIZE];
+    i8 num_crates;
+    i8 num_gems;
 };
+
+inline ivec2 unpack_pos(u8 packed) {
+    return { packed >> 4, packed & 0xF };
+}
+
+inline bool level_is_solid(level *lvl, ivec2 pos) {
+    u32 idx = (pos.y * lvl->width) + pos.x;
+    return (lvl->solid[idx / 8] >> (idx % 8)) & 1;
+}
 
 void level_file_init(level *lvl, const char *file_path) {
     FILE *lvl_file;
@@ -48,49 +57,60 @@ void level_file_init(level *lvl, const char *file_path) {
     u8 lvl_data[LEVEL_FILE_SIZE];
     u64 read_len = fread_s(lvl_data, LEVEL_FILE_SIZE, LEVEL_FILE_SIZE, 1, lvl_file);
     assert(read_len >= 1);
+    fclose(lvl_file);
 
-    lvl->width = (i8)lvl_data[0];
-    lvl->height = (i8)lvl_data[1];
-    lvl->start_gravity = (direction)lvl_data[2];
+    u8 dims = (u8)lvl_data[0];
+    lvl->width = (dims >> 4) & 0xf;
+    lvl->height = dims & 0xf;
 
-    lvl->num_colors = (i8)lvl_data[3];
+    lvl->start_gravity = (direction)lvl_data[1];
+    lvl->num_crates = (i8)lvl_data[2];
+    lvl->num_gems = (i8)lvl_data[3];
+
+    u8 *crate_data = (u8*)&lvl_data[12];
+    for (int i = 0; i < lvl->num_crates; i++) {
+        lvl->crate_starts[i] = unpack_pos(crate_data[i]);
+    }
+
     u64 colors_data = *(u64*)&lvl_data[4];
-    for (int i = 0; i < lvl->num_colors; i++) {
+    u8 *gem_data = (u8*)&lvl_data[44];
+    for (int i = 0; i < lvl->num_gems; i++) {
         lvl->gem_colors[i] = (color)((colors_data >> (2 * i)) & 0b11);
+        lvl->gem_starts[i] = unpack_pos(gem_data[i]);
     }
 
-    u64 spaces_data[8];
-    for (int i = 0; i < 8; i++) {
-        spaces_data[i] = *(u64*)&lvl_data[12 + i * 8];
-    }
-
-    int total_spaces = lvl->width * lvl->height;
-    for (int i = 0; i < total_spaces; i++) {
-        int chunk = i / 32;
-        int bit_pos = (i % 32) * 2;
-        lvl->map[i] = (space)((spaces_data[chunk] >> bit_pos) & 0b11);
-    }
+    u8 *solid_data = (u8*)&lvl_data[76];
+    memcpy_s(lvl->solid, MAP_MAX_SIZE / 8, solid_data, MAP_MAX_SIZE / 8);
 }
 void level_data_init(level *lvl, arena_ptr data) { }
 
-space level_space_at(level *lvl, ivec2 pos) {
-    u32 idx = (pos.y * lvl->width) + pos.x;
-    return lvl->map[idx];
-}
+#define RUN_MAX_MOVES 99
 
 struct run {
+    u64 start_timestamp;
+    ivec2 crates[ELEMENTS_MAX_NUM];
+    ivec2 gems[ELEMENTS_MAX_NUM];
+    direction moves[RUN_MAX_MOVES];
     direction current_gravity;
-
-    ivec2 crates[GEMS_MAX_NUM];
-    ivec2 gems[GEMS_MAX_NUM];
+    i8 num_crates;
+    i8 num_gems;
+    i8 num_moves;
 };
 
 void run_level_init(run *run, level *lvl) {
+    run->start_timestamp = SDL_GetTicksNS();
+
+    memcpy_s(run->crates, sizeof(run->crates), lvl->crate_starts, sizeof(lvl->crate_starts));
+    memcpy_s(run->gems, sizeof(run->gems), lvl->gem_starts, sizeof(lvl->gem_starts));
+
     run->current_gravity = lvl->start_gravity;
-    //TODO: create positions based off of the map definition
+    run->num_crates = lvl->num_crates;
+    run->num_gems = lvl->num_gems;
+    run->num_moves = 0;
 }
 
 level g_lvl;
+run g_run;
 
 void grav_init(engine_api api) {
     g_api = api;
@@ -141,6 +161,7 @@ void grav_init(engine_api api) {
     g_api.bus_fire(g_api.bus, event_type::LEVEL_LOADED, &evt, sizeof(evt));
 
     level_file_init(&g_lvl, "assets/demo_level.bin");
+    run_level_init(&g_run, &g_lvl);
 }
 
 void grav_tick(f32 dt) {
@@ -153,12 +174,30 @@ void grav_draw(f32 dt) {
     for (i32 y = 0; y < g_lvl.height; y++) {
         for (i32 x = 0; x < g_lvl.width; x++) {
             ivec2 p { x, y };
-            if (level_space_at(&g_lvl, p) == space::SOLID) {
+            if (level_is_solid(&g_lvl, p)) {
                 SDL_FRect r { x*cell_size, y*cell_size, cell_size-5, cell_size-5 };
                 SDL_RenderFillRect(g_api.context, &r);
             }
         }
     }
+
+    SDL_SetRenderDrawColor(g_api.context, 255, 255, 255, 255);
+    for (i32 i = 0; i < g_run.num_crates; i++) {
+        auto [x, y] = g_run.crates[i];
+        SDL_FRect r { x*cell_size, y*cell_size, cell_size-5, cell_size-5 };
+        SDL_RenderFillRect(g_api.context, &r);
+    }
+
+    for (i32 i = 0; i < g_run.num_gems; i++) {
+        const i32 *col = colors_def[(i32)g_lvl.gem_colors[i]];
+        SDL_SetRenderDrawColor(g_api.context, col[0], col[1], col[2], col[3]);
+
+        auto [x, y] = g_run.gems[i];
+        SDL_FRect r { x*cell_size, y*cell_size, cell_size-5, cell_size-5 };
+        SDL_RenderFillRect(g_api.context, &r);
+    }
+    //TODO: Need to rework rendering to a lower level so I could take advantage of instanced rendering here
+    //TODO: Could also look into baking the background once and reusing it with one copy operation per frame
 }
 
 void grav_exit() {
