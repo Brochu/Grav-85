@@ -33,18 +33,15 @@
     * enum for gem colors (limit to 3 colors MAX) (i8); red, green, blue
     * enum for directions (i8); up, right, down, left; can also be packed to i2
     * since we have 4 space types and 3 colors, we can store both using int2 to pack data the best we can
-- Data format on disk
-    * dimensions: width, height (i8, i8)
-    * starting gravity direction
-    * colors array: size (i8) | i2 array, max size 128, represents the colors of the gem, order from spaces array
-    * spaces array: i2 array, max size 128x128, will never reach even close to this
-- Level Filesize (in mem)
-    * dims -> 2xi8 -> 2bytes
-    * start_gravity -> i8 -> 1byte
-    * colors len -> i8 -> 1 byte
-    * colors arr -> max 32 -> i2 each -> 8bytes
-    * spaces arr -> max 32x32 -> i2 each -> 16bytes
-    * total = 2 + 1 + 1 + 8 + 16 -> 28 bytes
+- Data format on disk (108 bytes)
+    * u8  -> packed width/height
+    * u8  -> start gravity
+    * u8  -> num crates
+    * u8  -> num gems
+    * u64 -> colors data
+    * u8  -> x32 crates starts (each u8 is packed x,y)
+    * u8  -> x32 gem starts (each u8 is packed x,y)
+    * u8  -> x32 solid map - 256 bits (bit field of map, max map size 16x16)
 
 ### Demo Level
 
@@ -62,14 +59,6 @@
 11111110 00011000 01100001 10001111 1111
 ```
 
-- u8  -> packed width/height
-- u8  -> start gravity
-- u8  -> num crates
-- u8  -> num gems
-- u64 -> colors data
-- u8  -> x32 crates starts
-- u8  -> x32 gem starts
-- u8  -> x32 solid map - 256 bits
 
 ## Gameplay
 
