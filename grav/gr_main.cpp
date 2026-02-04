@@ -1,13 +1,9 @@
 #include <cstdio>
 
-#include "SDL3/SDL_timer.h"
-#include "qg_bus.hpp"
 #include "qg_config.hpp"
 #include "qg_input.hpp"
 #include "qg_math.hpp"
 #include "qg_memory.hpp"
-#include "qg_parse.hpp"
-#include "qg_random.hpp"
 #include "shared.hpp"
 
 #include "SDL3/SDL.h"
@@ -155,7 +151,7 @@ void grav_init(engine_api api) {
     }
     g_api.config_free(&cfg);
 
-    level_file_init(&g_lvl, "assets/demo_level.bin");
+    level_file_init(&g_lvl, "assets/level-demo.bin");
     run_level_init(&g_run, &g_lvl);
 }
 
