@@ -14,6 +14,11 @@ struct ivec2 {
     i32 y;
 };
 
+struct vec2 {
+    f32 x;
+    f32 y;
+};
+
 // Arithmetic
 inline ivec2 operator+(ivec2 a, ivec2 b) { return {a.x + b.x, a.y + b.y}; }
 inline ivec2 operator-(ivec2 a, ivec2 b) { return {a.x - b.x, a.y - b.y}; }
@@ -40,9 +45,37 @@ constexpr ivec2 direction_vectors[] = {
     ivec2_left,
 };
 
+// Conversion
+inline ivec2 to_vec2(vec2 v) { return {(i32)v.x, (i32)v.y}; }
+
 // Manhattan distance between two points
 inline i32 ivec2_manhattan(ivec2 a, ivec2 b) {
     i32 dx = a.x - b.x;
     i32 dy = a.y - b.y;
     return (dx < 0 ? -dx : dx) + (dy < 0 ? -dy : dy);
+}
+
+// Arithmetic
+inline vec2 operator+(vec2 a, vec2 b) { return {a.x + b.x, a.y + b.y}; }
+inline vec2 operator-(vec2 a, vec2 b) { return {a.x - b.x, a.y - b.y}; }
+inline vec2 operator-(vec2 v) { return {-v.x, -v.y}; }
+inline vec2 operator*(vec2 v, f32 s) { return {v.x * s, v.y * s}; }
+inline vec2 operator*(f32 s, vec2 v) { return {v.x * s, v.y * s}; }
+
+// Comparison
+inline bool operator==(vec2 a, vec2 b) { return a.x == b.x && a.y == b.y; }
+inline bool operator!=(vec2 a, vec2 b) { return !(a == b); }
+
+// Constants
+constexpr vec2 vec2_zero = {0.0f, 0.0f};
+
+// Conversion
+inline vec2 to_vec2(ivec2 v) { return {(f32)v.x, (f32)v.y}; }
+
+// Scalar move_toward: moves `current` toward `target` by at most `max_step`
+inline f32 move_toward(f32 current, f32 target, f32 max_step) {
+    f32 diff = target - current;
+    if (diff > max_step) return current + max_step;
+    if (diff < -max_step) return current - max_step;
+    return target;
 }
