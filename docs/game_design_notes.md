@@ -284,6 +284,24 @@ void update_ratings_tournament(std::vector<Player>& players, std::vector<int>& p
 
 ---
 
+## Animation & Input Timing
+
+### Current: Animation-Gated Input
+- Input blocked while elements are moving
+- Simple offset-based animation (logical position + visual offset that decays to zero)
+- Combo checks happen after animation completes
+- Chain reactions: remove gems → gravity → animate → combo check → repeat until stable
+
+### Future Option: Input Buffering/Queueing
+- Pre-compute entire chain (all gravity + combos) before animation starts
+- Store intermediate states as "keyframes" for animation playback
+- Allow player to queue next move while current animation plays
+- Logical state resolves instantly; animation is purely visual playback
+- Benefits: Speedrun-friendly, players not gated by animation speed
+- Complexity: Need keyframe storage, input queue management
+
+---
+
 ## Open Questions
 
 1. **Puzzle count per round?** 5 feels right, needs playtesting
