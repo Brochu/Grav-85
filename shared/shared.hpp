@@ -24,6 +24,13 @@ struct config;
     X(void, config_free, (config*)) \
     X(bool, config_read, (config*, const char*, config_value*))
 
+enum class input_action : u8;
+struct input_state;
+#define INPUT_MODULE_DEF \
+    X(bool, input_down, (input_state*, input_action)) \
+    X(bool, input_pressed, (input_state*, input_action)) \
+    X(bool, input_released, (input_state*, input_action))
+
 struct mem_arena;
 struct arena_ptr;
 struct arena_off;
@@ -59,6 +66,7 @@ struct engine_api {
 
     struct { BUS_MODULE_DEF };
     struct { CONFIG_MODULE_DEF };
+    struct { INPUT_MODULE_DEF };
     struct { MEMORY_MODULE_DEF };
     struct { PARSE_MODULE_DEF };
     struct { RANDOM_MODULE_DEF };
@@ -66,6 +74,7 @@ struct engine_api {
     #undef X
 
     event_bus *bus;
+    input_state *input;
 
     // RENDERER --------------
     SDL_Renderer *context;

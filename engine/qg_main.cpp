@@ -8,6 +8,7 @@
 
 #include "qg_bus.hpp"
 #include "qg_config.hpp"
+#include "qg_input.hpp"
 #include "qg_memory.hpp"
 #include "qg_parse.hpp"
 #include "qg_random.hpp"
@@ -17,6 +18,7 @@
 
 #define GAMELIB_BASE_PATH "./gr.dll"
 #define GAMELIB_LOAD_PATH "./gr_loaded.dll"
+HMODULE game_module = NULL;
 
 #define X(ret, name, sym, args) typedef ret (*name##_t) args;
 GAME_MODULE_DEF
@@ -25,10 +27,6 @@ GAME_MODULE_DEF
 #define X(ret, name, sym, args) name##_t name = NULL;
 GAME_MODULE_DEF
 #undef X
-
-HMODULE game_module = NULL;
-engine_api g_eng {};
-event_bus g_bus {};
 
 void gamelib_load() {
     assert(game_module == NULL && "Did not properly free the gamelib module");
@@ -76,10 +74,6 @@ void gamelib_refresh() {
     gamelib_load();
 }
 
-// ------------- CONFIG HANDLING
-
-config *root_cfg;
-
 // ------------- ENGINE - MAIN
 
 #define WINDOW_VERSION "ALPHA" //TODO: Export version from the main game DLL
@@ -115,16 +109,23 @@ int main(int argc, char **argv) {
     gamelib_load();
 
     // ENGINE INIT SEQUENCE
+    engine_api g_eng {};
     #define X(ret, name, params) g_eng.name = &name;
     BUS_MODULE_DEF
     CONFIG_MODULE_DEF
+    INPUT_MODULE_DEF
     MEMORY_MODULE_DEF
     PARSE_MODULE_DEF
     RANDOM_MODULE_DEF
     #undef X
 
+    event_bus g_bus {};
     bus_init(&g_bus, 2 * 1024 * 1024);
     g_eng.bus = &g_bus;
+
+    input_state g_input {};
+    input_init(&g_input);
+    g_eng.input = &g_input;
 
     g_eng.context = context;
     // -----------------------------------------
@@ -149,10 +150,14 @@ int main(int argc, char **argv) {
             if (event.type == SDL_EVENT_QUIT) {
                 g_running = false;
             }
-            if (event.type == SDL_EVENT_KEY_UP && event.key.key == SDLK_ESCAPE) {
-                g_running = false;
+            if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat) {
+                input_handle_key(&g_input, event.key.key, true);
+            }
+            if (event.type == SDL_EVENT_KEY_UP) {
+                input_handle_key(&g_input, event.key.key, false);
             }
         }
+        input_update(&g_input);
 
         while (lag_time >= NS_PER_FRAME) {
             game_tick(FRAME_TIME);
