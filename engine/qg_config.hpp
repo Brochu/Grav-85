@@ -3,7 +3,8 @@
 #include "qg_memory.hpp"
 
 enum class value_type : u8 {
-    SINGLE,
+    INTEGER,
+    FLOAT,
     RANGE,
     ARRAY,
     STRING,
@@ -13,7 +14,8 @@ struct config_value {
     value_type type;
 
     union {
-        i32 single;
+        i32 integer;
+        f32 flt;
 
         struct {
             i32 min;

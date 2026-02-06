@@ -59,8 +59,13 @@ void config_init(config *c, const char *file) {
                 val->array.len = num;
             }
             else {
-                val->type = value_type::SINGLE;
-                val->single = atoi(r.ptr);
+                if (sv_find(r, ".").ptr) {
+                    val->type = value_type::FLOAT;
+                    val->flt = (f32)atof(r.ptr);
+                } else {
+                    val->type = value_type::INTEGER;
+                    val->integer = atoi(r.ptr);
+                }
             }
             c->values[c->num_entries++] = val;
         }

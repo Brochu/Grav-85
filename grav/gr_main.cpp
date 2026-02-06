@@ -224,7 +224,7 @@ void run_check_combos(run *run) {
 }
 
 config g_cfg;
-i32 g_gravity_speed = 0;
+f32 g_gravity_speed = 0;
 
 level g_lvl;
 run g_run;
@@ -236,9 +236,9 @@ void grav_init(engine_api api) {
     g_api.config_init(&g_cfg, "assets/game.cfg");
     config_value val;
     if (g_api.config_read(&g_cfg, "gravity_speed", &val)) {
-        g_gravity_speed = val.single;
+        g_gravity_speed = val.flt;
     }
-    printf("[GAME] Loaded config; g_gravity_speed = %i\n", g_gravity_speed);
+    printf("[GAME] Loaded config; g_gravity_speed = %f\n", g_gravity_speed);
 
     level_file_init(&g_lvl, "assets/level-demo.bin");
     run_level_init(&g_run, &g_lvl);
