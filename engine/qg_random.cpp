@@ -25,12 +25,3 @@ i32 rand_int_min(i32 min_val, i32 max_val) {
 
     return min_val + (i32)(rand_float01() * (max_val - min_val));
 }
-
-i8 rand_actor_age() {
-    f32 sample = 0.0;
-
-    while (sample < 18.0 || sample > 110.0) {
-        sample = std::round(g_age_dist(g_rand_eng));
-    }
-    return static_cast<i8>(sample);
-}

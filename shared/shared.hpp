@@ -55,8 +55,7 @@ struct strview;
     X(void, rand_seed, (i64)) \
     X(f32, rand_float01, (void)) \
     X(i32, rand_int, (i32)) \
-    X(i32, rand_int_min, (i32, i32))  \
-    X(i8, rand_actor_age, (void))
+    X(i32, rand_int_min, (i32, i32))
 
 //TODO: Look into having a separate renderer based off of SDL3, could also make it hot-reloadable?
 struct SDL_Renderer;
