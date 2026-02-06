@@ -24,11 +24,15 @@ constexpr i32 colors_def[5][4] = {
     { 255, 255, 255, 255 }, // Cratews
     { 127, 127, 127, 255 }, // Walls
 };
-
 #define CRATE_COLOR_INDEX 3
 #define WALL_COLOR_INDEX 4
 #define EXPAND_COLOR(idx) colors_def[idx][0], colors_def[idx][1], colors_def[idx][2], colors_def[idx][3]
 
+enum element_type : u8 {
+    CRATE,
+    GEM,
+    COUNT,
+};
 #define ELEMENTS_MAX_NUM 32
 #define MAP_MAX_SIZE 256
 #define LEVEL_FILE_SIZE 108
@@ -68,7 +72,7 @@ void level_file_init(level *lvl, const char *file_path) {
     lvl->width = (dims >> 4) & 0xf;
     lvl->height = dims & 0xf;
 
-    lvl->start_gravity = (direction)lvl_data[1];
+    lvl->start_gravity = direction::COUNT;//(direction)lvl_data[1];
     lvl->num_crates = (i8)lvl_data[2];
     lvl->num_gems = (i8)lvl_data[3];
 
@@ -162,48 +166,52 @@ void run_gravity_change(run *run, level *lvl, direction new_gravity) {
     ivec2 opp = direction_vectors[((u8)new_gravity + 2) % 4];
     i32 num_moves = 0;
 
-    // Sort elements so furthest-along-gravity is processed first.
-    // Once settled, the next element naturally stops against it.
-    auto sort_by_gravity = [&](ivec2 *positions, i32 count, i32 *order) {
-        for (i32 i = 0; i < count; i++) order[i] = i;
-        for (i32 i = 1; i < count; i++) {
-            i32 key = order[i];
-            i32 key_dot = ivec2_dot(positions[key], dir);
-            i32 j = i - 1;
-            while (j >= 0 && ivec2_dot(positions[order[j]], dir) < key_dot) {
-                order[j + 1] = order[j];
-                j--;
-            }
-            order[j + 1] = key;
-        }
-    };
+    // Sort all elements so they will update from furthest along in the new_gravity direction first
+    i32 update_indices[ELEMENTS_MAX_NUM*2]; // Store both crates and gems
+    element_type update_types[ELEMENTS_MAX_NUM*2];
+    for (i32 i = 0; i < run->num_crates; i++) {
+        update_indices[i] = i;
+        update_types[i] = element_type::CRATE;
+    }
+    for (i32 i = 0; i < run->num_gems; i++) {
+        update_indices[run->num_crates+i] = i;
+        update_types[run->num_crates+i] = element_type::GEM;
+    }
 
-    auto update_func = [&](ivec2 *positions, vec2 *offsets, i32 i) {
-        ivec2 start = positions[i];
+    ivec2 *positions[element_type::COUNT];
+    positions[element_type::CRATE] = run->crates;
+    positions[element_type::GEM] = run->gems;
+    for (i32 i = 0; i < run->num_crates + run->num_gems; i++) {
+        i32 key = update_indices[i];
+        element_type key_type = update_types[i];
+        i32 key_dot = ivec2_dot(positions[key_type][key], dir);
+        i32 j = i - 1;
+        while (j >= 0 && ivec2_dot(positions[update_types[j]][update_indices[j]], dir) < key_dot) {
+            update_indices[j+1] = update_indices[j];
+            update_types[j+1] = update_types[j];
+            j--;
+        }
+        update_indices[j+1] = key;
+        update_types[j+1] = key_type;
+    }
+
+    vec2 *offsets[element_type::COUNT];
+    offsets[element_type::CRATE] = run->crate_offsets;
+    offsets[element_type::GEM] = run->gem_offsets;
+    for (i32 i = 0; i < run->num_crates + run->num_gems; i++) {
+        ivec2 start = positions[update_types[i]][update_indices[i]];
         ivec2 next = start + dir;
 
         while (!level_is_solid(lvl, next) && !run_element_at(run, next)) {
             next = next + dir;
         }
-        ivec2 end = next + opp; // step back from wall/element
+        ivec2 end = next + opp;
 
         if (end != start) {
             num_moves++;
-            positions[i] = end;
-            offsets[i] = to_vec2(start - end);
+            positions[update_types[i]][update_indices[i]] = end;
+            offsets[update_types[i]][update_indices[i]] = to_vec2(start - end);
         }
-    };
-
-    i32 crate_order[ELEMENTS_MAX_NUM];
-    sort_by_gravity(run->crates, run->num_crates, crate_order);
-    for (i32 i = 0; i < run->num_crates; i++) {
-        update_func(run->crates, run->crate_offsets, crate_order[i]);
-    }
-
-    i32 gem_order[ELEMENTS_MAX_NUM];
-    sort_by_gravity(run->gems, run->num_gems, gem_order);
-    for (i32 i = 0; i < run->num_gems; i++) {
-        update_func(run->gems, run->gem_offsets, gem_order[i]);
     }
 
     if (num_moves > 0) {
@@ -289,6 +297,7 @@ void grav_draw(f32 dt) {
     // Render elements crates and gems
     SDL_SetRenderDrawColor(g_api.context, EXPAND_COLOR(CRATE_COLOR_INDEX));
     for (i32 i = 0; i < g_run.num_crates; i++) {
+        //TODO: Need to use the offsets to render at the right positions during animations
         auto [x, y] = g_run.crates[i];
         SDL_FRect r { x*cell_size, y*cell_size, cell_size-5, cell_size-5 };
         SDL_RenderFillRect(g_api.context, &r);
@@ -296,9 +305,9 @@ void grav_draw(f32 dt) {
 
     for (i32 i = 0; i < g_run.num_gems; i++) {
         if (!((g_run.gems_active >> i) & 1)) continue;
-
         SDL_SetRenderDrawColor(g_api.context, EXPAND_COLOR((i32)g_lvl.gem_colors[i]));
 
+        //TODO: Need to use the offsets to render at the right positions during animations
         auto [x, y] = g_run.gems[i];
         SDL_FRect r { x*cell_size, y*cell_size, cell_size-5, cell_size-5 };
         SDL_RenderFillRect(g_api.context, &r);
