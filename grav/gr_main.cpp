@@ -224,7 +224,6 @@ void grav_init(engine_api api) {
 
     config cfg;
     g_api.config_init(&cfg, "assets/game.cfg");
-    printf("CONFIG VALUE = %d\n", cfg.value);
     config_value val;
     if (g_api.config_read(&cfg, "gravity_speed", &val)) {
         printf(" Gravity Speed -> '%d'\n", val.single);
