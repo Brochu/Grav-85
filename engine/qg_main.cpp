@@ -168,7 +168,7 @@ int main(int argc, char **argv) {
 
         // Draw current frame
         SDL_SetRenderDrawColor(context, 0, 0, 0, 255);
-        SDL_RenderFillRect(context, NULL);
+        SDL_RenderClear(context);
 
         game_draw(SDL_NS_TO_SECONDS((f32)elapsed));
 

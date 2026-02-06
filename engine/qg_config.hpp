@@ -35,8 +35,6 @@ struct config_value {
 #define CONFIG_NUM_KEYS 128
 
 struct config {
-    i32 value = 69;
-
     const char *keys[CONFIG_NUM_KEYS];
     config_value *values[CONFIG_NUM_KEYS];
     u64 num_entries = 0;
