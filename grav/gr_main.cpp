@@ -77,7 +77,8 @@ void level_file_init(level *lvl, const char *file_path) {
         lvl->crate_starts[i] = unpack_pos(crate_data[i]);
     }
 
-    u64 colors_data = *(u64*)&lvl_data[4];
+    u64 colors_data;
+    memcpy(&colors_data, &lvl_data[4], sizeof(u64));
     u8 *gem_data = (u8*)&lvl_data[44];
     for (int i = 0; i < lvl->num_gems; i++) {
         lvl->gem_colors[i] = (color)((colors_data >> (2 * i)) & 0b11);
@@ -161,35 +162,50 @@ void run_gravity_change(run *run, level *lvl, direction new_gravity) {
     ivec2 opp = direction_vectors[((u8)new_gravity + 2) % 4];
     i32 num_moves = 0;
 
-    auto update_func = [&](ivec2 *positions, vec2 *offsets, i32 i) {
-        ivec2 start = positions[i];
-        ivec2 end = start;
-        ivec2 push = ivec2_zero;
-
-        while (!level_is_solid(lvl, end)) {
-            if (end != start && run_element_at(run, end)) {
-                push = push + opp;
+    // Sort elements so furthest-along-gravity is processed first.
+    // Once settled, the next element naturally stops against it.
+    auto sort_by_gravity = [&](ivec2 *positions, i32 count, i32 *order) {
+        for (i32 i = 0; i < count; i++) order[i] = i;
+        for (i32 i = 1; i < count; i++) {
+            i32 key = order[i];
+            i32 key_dot = ivec2_dot(positions[key], dir);
+            i32 j = i - 1;
+            while (j >= 0 && ivec2_dot(positions[order[j]], dir) < key_dot) {
+                order[j + 1] = order[j];
+                j--;
             }
-
-            end = end + dir;
-        }
-        end = end + opp;
-
-        if ((end + push) != start) {
-            num_moves++;
-            positions[i] = end + push;
-            offsets[i] = to_vec2(start - positions[i]);
+            order[j + 1] = key;
         }
     };
 
+    auto update_func = [&](ivec2 *positions, vec2 *offsets, i32 i) {
+        ivec2 start = positions[i];
+        ivec2 next = start + dir;
+
+        while (!level_is_solid(lvl, next) && !run_element_at(run, next)) {
+            next = next + dir;
+        }
+        ivec2 end = next + opp; // step back from wall/element
+
+        if (end != start) {
+            num_moves++;
+            positions[i] = end;
+            offsets[i] = to_vec2(start - end);
+        }
+    };
+
+    i32 crate_order[ELEMENTS_MAX_NUM];
+    sort_by_gravity(run->crates, run->num_crates, crate_order);
     for (i32 i = 0; i < run->num_crates; i++) {
-        update_func(run->crates, run->crate_offsets, i);
-    }
-    for (i32 i = 0; i < run->num_gems; i++) {
-        update_func(run->gems, run->gem_offsets, i);
+        update_func(run->crates, run->crate_offsets, crate_order[i]);
     }
 
-    //TODO: Double check lambda approach
+    i32 gem_order[ELEMENTS_MAX_NUM];
+    sort_by_gravity(run->gems, run->num_gems, gem_order);
+    for (i32 i = 0; i < run->num_gems; i++) {
+        update_func(run->gems, run->gem_offsets, gem_order[i]);
+    }
+
     if (num_moves > 0) {
         run->animating = true;
     }
