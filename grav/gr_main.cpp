@@ -223,6 +223,9 @@ void run_check_combos(run *run) {
     //TODO: Flood fill to check for gems that should de-activate
 }
 
+config g_cfg;
+i32 g_gravity_speed = 0;
+
 level g_lvl;
 run g_run;
 
@@ -230,16 +233,12 @@ void grav_init(engine_api api) {
     g_api = api;
     g_in = api.input;
 
-    config cfg;
-    g_api.config_init(&cfg, "assets/game.cfg");
+    g_api.config_init(&g_cfg, "assets/game.cfg");
     config_value val;
-    if (g_api.config_read(&cfg, "gravity_speed", &val)) {
-        printf(" Gravity Speed -> '%d'\n", val.single);
+    if (g_api.config_read(&g_cfg, "gravity_speed", &val)) {
+        g_gravity_speed = val.single;
     }
-    if (g_api.config_read(&cfg, "levels_per_round", &val)) {
-        printf(" Levels Per Round -> '%d'\n", val.single);
-    }
-    g_api.config_free(&cfg);
+    printf("[GAME] Loaded config; g_gravity_speed = %i\n", g_gravity_speed);
 
     level_file_init(&g_lvl, "assets/level-demo.bin");
     run_level_init(&g_run, &g_lvl);
@@ -260,7 +259,27 @@ void grav_tick(f32 dt) {
     }
 
     if (g_run.animating) {
-        // Move elements towards offset == 0
+        i32 num_moves = 0;
+        auto anim_func = [&](vec2 *offsets, i32 i) {
+            if (offsets[i] != vec2_zero) {
+                num_moves++;
+
+                f32 nx = math_move_toward(offsets[i].x, 0.f, g_gravity_speed * dt);
+                f32 ny = math_move_toward(offsets[i].y, 0.f, g_gravity_speed * dt);
+                offsets[i] = { nx, ny };
+            }
+        };
+
+        for (i32 i = 0; i < g_run.num_crates; i++) {
+            anim_func(g_run.crate_offsets, i);
+        }
+        for (i32 i = 0; i < g_run.num_gems; i++) {
+            anim_func(g_run.gem_offsets, i);
+        }
+
+        if (num_moves <= 0) {
+            g_run.animating = false;
+        }
     }
 }
 
@@ -297,9 +316,9 @@ void grav_draw(f32 dt) {
     // Render elements crates and gems
     SDL_SetRenderDrawColor(g_api.context, EXPAND_COLOR(CRATE_COLOR_INDEX));
     for (i32 i = 0; i < g_run.num_crates; i++) {
-        //TODO: Need to use the offsets to render at the right positions during animations
         auto [x, y] = g_run.crates[i];
-        SDL_FRect r { x*cell_size, y*cell_size, cell_size-5, cell_size-5 };
+        auto [ox, oy] = g_run.crate_offsets[i];
+        SDL_FRect r { (x+ox)*cell_size, (y+oy)*cell_size, cell_size-5, cell_size-5 };
         SDL_RenderFillRect(g_api.context, &r);
     }
 
@@ -307,9 +326,9 @@ void grav_draw(f32 dt) {
         if (!((g_run.gems_active >> i) & 1)) continue;
         SDL_SetRenderDrawColor(g_api.context, EXPAND_COLOR((i32)g_lvl.gem_colors[i]));
 
-        //TODO: Need to use the offsets to render at the right positions during animations
         auto [x, y] = g_run.gems[i];
-        SDL_FRect r { x*cell_size, y*cell_size, cell_size-5, cell_size-5 };
+        auto [ox, oy] = g_run.gem_offsets[i];
+        SDL_FRect r { (x+ox)*cell_size, (y+oy)*cell_size, cell_size-5, cell_size-5 };
         SDL_RenderFillRect(g_api.context, &r);
     }
     //TODO: Need to rework rendering to a lower level so I could take advantage of instanced rendering here
@@ -317,4 +336,5 @@ void grav_draw(f32 dt) {
 }
 
 void grav_exit() {
+    g_api.config_free(&g_cfg);
 }

@@ -83,7 +83,7 @@ inline vec2 to_vec2(ivec2 v) { return {(f32)v.x, (f32)v.y}; }
 constexpr vec2 vec2_zero = {0.0f, 0.0f};
 
 // Scalar move_toward: moves `current` toward `target` by at most `max_step`
-inline f32 move_toward(f32 current, f32 target, f32 max_step) {
+inline f32 math_move_toward(f32 current, f32 target, f32 max_step) {
     f32 diff = target - current;
     if (diff > max_step) return current + max_step;
     if (diff < -max_step) return current - max_step;
