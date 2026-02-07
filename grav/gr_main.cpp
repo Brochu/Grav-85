@@ -94,15 +94,15 @@ void level_file_init(level *lvl, const char *file_path) {
 }
 void level_data_init(level *lvl, arena_ptr data) { }
 
-#define RUN_MAX_MOVES 99
+#define ATTEMPT_MAX_MOVES 99
 
-struct run {
+struct attempt {
     u64 start_timestamp;
     ivec2 crates[ELEMENTS_MAX_NUM];
     ivec2 gems[ELEMENTS_MAX_NUM];
     vec2 crate_offsets[ELEMENTS_MAX_NUM];
     vec2 gem_offsets[ELEMENTS_MAX_NUM];
-    direction moves[RUN_MAX_MOVES];
+    direction moves[ATTEMPT_MAX_MOVES];
     direction current_gravity;
     u32 gems_active;
     i8 num_crates;
@@ -111,43 +111,43 @@ struct run {
     bool animating;  // true = block input, offsets decaying
 };
 
-void run_level_init(run *run, level *lvl) {
-    run->start_timestamp = SDL_GetTicksNS();
+void attempt_level_init(attempt *att, level *lvl) {
+    att->start_timestamp = SDL_GetTicksNS();
 
-    memcpy_s(run->crates, sizeof(run->crates), lvl->crate_starts, sizeof(lvl->crate_starts));
-    memset(run->crate_offsets, 0, sizeof(run->crate_offsets));
-    memcpy_s(run->gems, sizeof(run->gems), lvl->gem_starts, sizeof(lvl->gem_starts));
-    memset(run->gem_offsets, 0, sizeof(run->gem_offsets));
+    memcpy_s(att->crates, sizeof(att->crates), lvl->crate_starts, sizeof(lvl->crate_starts));
+    memset(att->crate_offsets, 0, sizeof(att->crate_offsets));
+    memcpy_s(att->gems, sizeof(att->gems), lvl->gem_starts, sizeof(lvl->gem_starts));
+    memset(att->gem_offsets, 0, sizeof(att->gem_offsets));
 
-    run->current_gravity = lvl->start_gravity;
-    run->gems_active = (1u << lvl->num_gems) - 1;
-    run->num_crates = lvl->num_crates;
-    run->num_gems = lvl->num_gems;
-    run->num_moves = 0;
+    att->current_gravity = lvl->start_gravity;
+    att->gems_active = (1u << lvl->num_gems) - 1;
+    att->num_crates = lvl->num_crates;
+    att->num_gems = lvl->num_gems;
+    att->num_moves = 0;
 }
 
-void run_level_reset(run *run, level *lvl) {
-    memcpy_s(run->crates, sizeof(run->crates), lvl->crate_starts, sizeof(lvl->crate_starts));
-    memset(run->crate_offsets, 0, sizeof(run->crate_offsets));
-    memcpy_s(run->gems, sizeof(run->gems), lvl->gem_starts, sizeof(lvl->gem_starts));
-    memset(run->gem_offsets, 0, sizeof(run->gem_offsets));
+void attempt_level_reset(attempt *att, level *lvl) {
+    memcpy_s(att->crates, sizeof(att->crates), lvl->crate_starts, sizeof(lvl->crate_starts));
+    memset(att->crate_offsets, 0, sizeof(att->crate_offsets));
+    memcpy_s(att->gems, sizeof(att->gems), lvl->gem_starts, sizeof(lvl->gem_starts));
+    memset(att->gem_offsets, 0, sizeof(att->gem_offsets));
 
-    run->current_gravity = lvl->start_gravity;
-    run->gems_active = (1u << lvl->num_gems) - 1;
-    run->num_crates = lvl->num_crates;
-    run->num_gems = lvl->num_gems;
-    run->num_moves = 0;
+    att->current_gravity = lvl->start_gravity;
+    att->gems_active = (1u << lvl->num_gems) - 1;
+    att->num_crates = lvl->num_crates;
+    att->num_gems = lvl->num_gems;
+    att->num_moves = 0;
 }
 
-bool run_element_at(run *run, ivec2 pos) {
-    for (i32 i = 0; i < run->num_crates; i++) {
-        if (run->crates[i] == pos) {
+bool attempt_element_at(attempt *att, ivec2 pos) {
+    for (i32 i = 0; i < att->num_crates; i++) {
+        if (att->crates[i] == pos) {
             return true;
         }
     }
 
-    for (i32 i = 0; i < run->num_gems; i++) {
-        if (run->gems[i] == pos) {
+    for (i32 i = 0; i < att->num_gems; i++) {
+        if (att->gems[i] == pos) {
             return true;
         }
     }
@@ -155,13 +155,13 @@ bool run_element_at(run *run, ivec2 pos) {
     return false;
 }
 
-void run_gravity_change(run *run, level *lvl, direction new_gravity) {
+void attempt_gravity_change(attempt *att, level *lvl, direction new_gravity) {
     //TODO: Do we need to store the level in the run itself?
-    if (new_gravity == run->current_gravity) {
+    if (new_gravity == att->current_gravity) {
         return;
     }
 
-    run->current_gravity = new_gravity;
+    att->current_gravity = new_gravity;
     ivec2 dir = direction_vectors[(u8)new_gravity];
     ivec2 opp = direction_vectors[((u8)new_gravity + 2) % 4];
     i32 num_moves = 0;
@@ -169,19 +169,19 @@ void run_gravity_change(run *run, level *lvl, direction new_gravity) {
     // Sort all elements so they will update from furthest along in the new_gravity direction first
     i32 update_indices[ELEMENTS_MAX_NUM*2]; // Store both crates and gems
     element_type update_types[ELEMENTS_MAX_NUM*2];
-    for (i32 i = 0; i < run->num_crates; i++) {
+    for (i32 i = 0; i < att->num_crates; i++) {
         update_indices[i] = i;
         update_types[i] = element_type::CRATE;
     }
-    for (i32 i = 0; i < run->num_gems; i++) {
-        update_indices[run->num_crates+i] = i;
-        update_types[run->num_crates+i] = element_type::GEM;
+    for (i32 i = 0; i < att->num_gems; i++) {
+        update_indices[att->num_crates+i] = i;
+        update_types[att->num_crates+i] = element_type::GEM;
     }
 
     ivec2 *positions[element_type::COUNT];
-    positions[element_type::CRATE] = run->crates;
-    positions[element_type::GEM] = run->gems;
-    for (i32 i = 0; i < run->num_crates + run->num_gems; i++) {
+    positions[element_type::CRATE] = att->crates;
+    positions[element_type::GEM] = att->gems;
+    for (i32 i = 0; i < att->num_crates + att->num_gems; i++) {
         i32 key = update_indices[i];
         element_type key_type = update_types[i];
         i32 key_dot = ivec2_dot(positions[key_type][key], dir);
@@ -196,13 +196,13 @@ void run_gravity_change(run *run, level *lvl, direction new_gravity) {
     }
 
     vec2 *offsets[element_type::COUNT];
-    offsets[element_type::CRATE] = run->crate_offsets;
-    offsets[element_type::GEM] = run->gem_offsets;
-    for (i32 i = 0; i < run->num_crates + run->num_gems; i++) {
+    offsets[element_type::CRATE] = att->crate_offsets;
+    offsets[element_type::GEM] = att->gem_offsets;
+    for (i32 i = 0; i < att->num_crates + att->num_gems; i++) {
         ivec2 start = positions[update_types[i]][update_indices[i]];
         ivec2 next = start + dir;
 
-        while (!level_is_solid(lvl, next) && !run_element_at(run, next)) {
+        while (!level_is_solid(lvl, next) && !attempt_element_at(att, next)) {
             next = next + dir;
         }
         ivec2 end = next + opp;
@@ -215,11 +215,11 @@ void run_gravity_change(run *run, level *lvl, direction new_gravity) {
     }
 
     if (num_moves > 0) {
-        run->animating = true;
+        att->animating = true;
     }
 }
 
-void run_check_combos(run *run) {
+void attempt_check_combos(attempt *att) {
     //TODO: Flood fill to check for gems that should de-activate
 }
 
@@ -227,7 +227,7 @@ config g_cfg;
 f32 g_gravity_speed = 0;
 
 level g_lvl;
-run g_run;
+attempt g_att;
 
 void grav_init(engine_api api) {
     g_api = api;
@@ -241,24 +241,28 @@ void grav_init(engine_api api) {
     printf("[GAME] Loaded config; g_gravity_speed = %f\n", g_gravity_speed);
 
     level_file_init(&g_lvl, "assets/level-demo.bin");
-    run_level_init(&g_run, &g_lvl);
+    attempt_level_init(&g_att, &g_lvl);
 }
 
 void grav_tick(f32 dt) {
-    if (!g_run.animating  && g_api.input_pressed(g_in, input_action::GRAVITY_UP)) {
-        run_gravity_change(&g_run, &g_lvl, direction::UP);
-    }
-    else if (!g_run.animating  && g_api.input_pressed(g_in, input_action::GRAVITY_RIGHT)) {
-        run_gravity_change(&g_run, &g_lvl, direction::RIGHT);
-    }
-    else if (!g_run.animating  && g_api.input_pressed(g_in, input_action::GRAVITY_DOWN)) {
-        run_gravity_change(&g_run, &g_lvl, direction::DOWN);
-    }
-    else if (!g_run.animating  && g_api.input_pressed(g_in, input_action::GRAVITY_LEFT)) {
-        run_gravity_change(&g_run, &g_lvl, direction::LEFT);
+    if (!g_att.animating  && g_api.input_pressed(g_in, input_action::RESET)) {
+        attempt_level_reset(&g_att, &g_lvl);
     }
 
-    if (g_run.animating) {
+    if (!g_att.animating  && g_api.input_pressed(g_in, input_action::GRAVITY_UP)) {
+        attempt_gravity_change(&g_att, &g_lvl, direction::UP);
+    }
+    else if (!g_att.animating  && g_api.input_pressed(g_in, input_action::GRAVITY_RIGHT)) {
+        attempt_gravity_change(&g_att, &g_lvl, direction::RIGHT);
+    }
+    else if (!g_att.animating  && g_api.input_pressed(g_in, input_action::GRAVITY_DOWN)) {
+        attempt_gravity_change(&g_att, &g_lvl, direction::DOWN);
+    }
+    else if (!g_att.animating  && g_api.input_pressed(g_in, input_action::GRAVITY_LEFT)) {
+        attempt_gravity_change(&g_att, &g_lvl, direction::LEFT);
+    }
+
+    if (g_att.animating) {
         i32 num_moves = 0;
         auto anim_func = [&](vec2 *offsets, i32 i) {
             if (offsets[i] != vec2_zero) {
@@ -270,15 +274,15 @@ void grav_tick(f32 dt) {
             }
         };
 
-        for (i32 i = 0; i < g_run.num_crates; i++) {
-            anim_func(g_run.crate_offsets, i);
+        for (i32 i = 0; i < g_att.num_crates; i++) {
+            anim_func(g_att.crate_offsets, i);
         }
-        for (i32 i = 0; i < g_run.num_gems; i++) {
-            anim_func(g_run.gem_offsets, i);
+        for (i32 i = 0; i < g_att.num_gems; i++) {
+            anim_func(g_att.gem_offsets, i);
         }
 
         if (num_moves <= 0) {
-            g_run.animating = false;
+            g_att.animating = false;
         }
     }
 }
@@ -287,7 +291,7 @@ void grav_draw(f32 dt) {
     // Render gravity indicator
     f32 center_x = 600.0f, center_y = 30.0f;
     f32 len = 15.0f;
-    ivec2 dir = direction_vectors[(i32)g_run.current_gravity];
+    ivec2 dir = direction_vectors[(i32)g_att.current_gravity];
     f32 dx = (f32)dir.x * len;
     f32 dy = (f32)dir.y * len;
 
@@ -315,19 +319,19 @@ void grav_draw(f32 dt) {
 
     // Render elements crates and gems
     SDL_SetRenderDrawColor(g_api.context, EXPAND_COLOR(CRATE_COLOR_INDEX));
-    for (i32 i = 0; i < g_run.num_crates; i++) {
-        auto [x, y] = g_run.crates[i];
-        auto [ox, oy] = g_run.crate_offsets[i];
+    for (i32 i = 0; i < g_att.num_crates; i++) {
+        auto [x, y] = g_att.crates[i];
+        auto [ox, oy] = g_att.crate_offsets[i];
         SDL_FRect r { (x+ox)*cell_size, (y+oy)*cell_size, cell_size-5, cell_size-5 };
         SDL_RenderFillRect(g_api.context, &r);
     }
 
-    for (i32 i = 0; i < g_run.num_gems; i++) {
-        if (!((g_run.gems_active >> i) & 1)) continue;
+    for (i32 i = 0; i < g_att.num_gems; i++) {
+        if (!((g_att.gems_active >> i) & 1)) continue;
         SDL_SetRenderDrawColor(g_api.context, EXPAND_COLOR((i32)g_lvl.gem_colors[i]));
 
-        auto [x, y] = g_run.gems[i];
-        auto [ox, oy] = g_run.gem_offsets[i];
+        auto [x, y] = g_att.gems[i];
+        auto [ox, oy] = g_att.gem_offsets[i];
         SDL_FRect r { (x+ox)*cell_size, (y+oy)*cell_size, cell_size-5, cell_size-5 };
         SDL_RenderFillRect(g_api.context, &r);
     }
