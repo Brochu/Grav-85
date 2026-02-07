@@ -1,0 +1,23 @@
+<Project DefaultTargets="puzzlegen" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <build_dir>.\build</build_dir>
+        <bin_dir>.\bin</bin_dir>
+
+        <includes>-I..\..\engine\ -I..\..\shared\</includes>
+        <c_flags>-nologo -c -std:c++17 -EHsc -Zi -MD -Fo$(build_dir)\ $(includes) -TP</c_flags>
+        <link_flags>-NOLOGO -DEBUG</link_flags>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <clean_files Include="$(build_dir)\~puzzlegen*.*;$(bin_dir)\puzzlegen*.*;" />
+    </ItemGroup>
+
+    <Target Name="clean">
+        <Delete Files="@(clean_files)" ContinueOnError="true" />
+    </Target>
+
+    <Target Name="puzzlegen">
+        <Exec Command="cl $(c_flags) ~puzzlegen.cpp" />
+        <Exec Command="link $(link_flags) $(build_dir)\~puzzlegen.obj -out:$(bin_dir)\puzzlegen.exe" />
+    </Target>
+</Project>
