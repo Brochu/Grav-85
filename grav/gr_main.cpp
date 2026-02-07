@@ -240,7 +240,7 @@ void grav_init(engine_api api) {
     }
     printf("[GAME] Loaded config; g_gravity_speed = %f\n", g_gravity_speed);
 
-    level_file_init(&g_lvl, "assets/level-demo.bin");
+    level_file_init(&g_lvl, "assets/5-level.bin");
     attempt_level_init(&g_att, &g_lvl);
 }
 
