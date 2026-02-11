@@ -28,6 +28,18 @@ constexpr i32 colors_def[5][4] = {
 #define WALL_COLOR_INDEX 4
 #define EXPAND_COLOR(idx) colors_def[idx][0], colors_def[idx][1], colors_def[idx][2], colors_def[idx][3]
 
+#define NUM_LEVEL_PER_BUNDLE 5
+#define BYTES_PER_LEVEL 108
+#define BYTES_PER_BUNDLE NUM_LEVEL_PER_BUNDLE * BYTES_PER_LEVEL
+
+/*
+struct bundle {
+    i8 num_levels;
+    level *levels;
+    mem_arena _scratch;
+};
+*/
+
 enum element_type : u8 {
     CRATE,
     GEM,
@@ -35,7 +47,6 @@ enum element_type : u8 {
 };
 #define ELEMENTS_MAX_NUM 32
 #define MAP_MAX_SIZE 256
-#define LEVEL_FILE_SIZE 108
 
 struct level {
     u8 solid[MAP_MAX_SIZE / 8];       // 1 bit per cell
@@ -49,10 +60,6 @@ struct level {
     i8 num_gems;
 };
 
-inline ivec2 unpack_pos(u8 packed) {
-    return { packed >> 4, packed & 0xF };
-}
-
 inline bool level_is_solid(level *lvl, ivec2 pos) {
     u32 idx = (pos.y * lvl->width) + pos.x;
     return (lvl->solid[idx / 8] >> (idx % 8)) & 1;
@@ -63,8 +70,8 @@ void level_file_init(level *lvl, const char *file_path) {
     i32 err = fopen_s(&lvl_file, file_path, "rb");
     assert(err == 0);
 
-    u8 lvl_data[LEVEL_FILE_SIZE];
-    u64 read_len = fread_s(lvl_data, LEVEL_FILE_SIZE, LEVEL_FILE_SIZE, 1, lvl_file);
+    u8 lvl_data[BYTES_PER_LEVEL];
+    u64 read_len = fread_s(lvl_data, BYTES_PER_LEVEL, BYTES_PER_LEVEL, 1, lvl_file);
     assert(read_len >= 1);
     fclose(lvl_file);
 

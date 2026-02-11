@@ -36,6 +36,12 @@ inline i32 ivec2_dot(ivec2 a, ivec2 b) { return a.x * b.x + a.y * b.y; }
 // Conversion
 inline ivec2 to_ivec2(vec2 v) { return {(i32)v.x, (i32)v.y}; }
 
+// Unpack a position from a packed integer (high half = x, low half = y)
+inline ivec2 unpack_pos(u8  packed) { return { packed >> 4, packed & 0xF }; }
+inline ivec2 unpack_pos(u16 packed) { return { packed >> 8, packed & 0xFF }; }
+inline ivec2 unpack_pos(u32 packed) { return { (i32)(packed >> 16), (i32)(packed & 0xFFFF) }; }
+inline ivec2 unpack_pos(u64 packed) { return { (i32)(packed >> 32), (i32)(packed & 0xFFFFFFFF) }; }
+
 // Manhattan distance between two points
 inline i32 ivec2_manhattan(ivec2 a, ivec2 b) {
     i32 dx = a.x - b.x;
