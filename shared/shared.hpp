@@ -24,12 +24,13 @@ struct config;
     X(void, config_free, (config*)) \
     X(bool, config_read, (config*, const char*, config_value*))
 
-enum class input_action : u8;
+enum class key_code : u16;
 struct input_state;
 #define INPUT_MODULE_DEF \
-    X(bool, input_down, (input_state*, input_action)) \
-    X(bool, input_pressed, (input_state*, input_action)) \
-    X(bool, input_released, (input_state*, input_action))
+    X(void, input_bind_key, (input_state*, key_code, u8)) \
+    X(bool, input_down, (input_state*, u8)) \
+    X(bool, input_pressed, (input_state*, u8)) \
+    X(bool, input_released, (input_state*, u8))
 
 struct mem_arena;
 struct arena_ptr;

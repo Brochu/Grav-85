@@ -11,6 +11,14 @@
 engine_api g_api {};
 input_state *g_in {};
 
+enum class game_action : u8 {
+    GRAVITY_UP, GRAVITY_DOWN, GRAVITY_LEFT, GRAVITY_RIGHT,
+    RESET, DEBUG_PREV_LEVEL, DEBUG_NEXT_LEVEL,
+    MENU_UP, MENU_DOWN, MENU_LEFT, MENU_RIGHT,
+    MENU_CONFIRM, MENU_CANCEL,
+    COUNT
+};
+
 enum class color : u8 { RED, GREEN, BLUE, COUNT };
 #define MAP_MAX_SIZE 256
 #define ELEMENTS_MAX_NUM 32
@@ -258,6 +266,32 @@ void grav_init(engine_api api) {
     g_api = api;
     g_in = api.input;
 
+    // Register key bindings
+    auto bind = [&](key_code k, game_action a) {
+        g_api.input_bind_key(g_in, k, (u8)a);
+    };
+    bind(key_code::W,     game_action::GRAVITY_UP);
+    bind(key_code::A,     game_action::GRAVITY_LEFT);
+    bind(key_code::S,     game_action::GRAVITY_DOWN);
+    bind(key_code::D,     game_action::GRAVITY_RIGHT);
+
+    bind(key_code::UP,    game_action::GRAVITY_UP);
+    bind(key_code::UP,    game_action::MENU_UP);
+    bind(key_code::DOWN,  game_action::GRAVITY_DOWN);
+    bind(key_code::DOWN,  game_action::MENU_DOWN);
+    bind(key_code::LEFT,  game_action::GRAVITY_LEFT);
+    bind(key_code::LEFT,  game_action::MENU_LEFT);
+    bind(key_code::RIGHT, game_action::GRAVITY_RIGHT);
+    bind(key_code::RIGHT, game_action::MENU_RIGHT);
+
+    bind(key_code::RETURN, game_action::MENU_CONFIRM);
+    bind(key_code::SPACE,  game_action::MENU_CONFIRM);
+    bind(key_code::ESCAPE, game_action::MENU_CANCEL);
+
+    bind(key_code::R,        game_action::RESET);
+    bind(key_code::PAGE_UP,  game_action::DEBUG_PREV_LEVEL);
+    bind(key_code::PAGE_DOWN, game_action::DEBUG_NEXT_LEVEL);
+
     g_api.config_init(&g_cfg, "assets/game.cfg");
     config_value val;
     if (g_api.config_read(&g_cfg, "gravity_speed", &val)) {
@@ -282,29 +316,29 @@ void grav_tick(f32 dt) {
     attempt *att;
     match_current_attempt(&g_match, player_index, &lvl, &att);
 
-    if (g_api.input_pressed(g_in, input_action::RESET)) {
+    if (g_api.input_pressed(g_in, (u8)game_action::RESET)) {
         attempt_level_reset(att, lvl);
     }
 
-    if (g_api.input_pressed(g_in, input_action::DEBUG_PREV_LEVEL) && g_match.level_indices[player_index] > 0) {
+    if (g_api.input_pressed(g_in, (u8)game_action::DEBUG_PREV_LEVEL) && g_match.level_indices[player_index] > 0) {
         g_match.level_indices[player_index]--;
         match_current_attempt(&g_match, player_index, &lvl, &att);
     }
-    if (g_api.input_pressed(g_in, input_action::DEBUG_NEXT_LEVEL) && g_match.level_indices[player_index] < g_match.num_levels - 1) {
+    if (g_api.input_pressed(g_in, (u8)game_action::DEBUG_NEXT_LEVEL) && g_match.level_indices[player_index] < g_match.num_levels - 1) {
         g_match.level_indices[player_index]++;
         match_current_attempt(&g_match, player_index, &lvl, &att);
     }
 
-    if (!att->animating  && g_api.input_pressed(g_in, input_action::GRAVITY_UP)) {
+    if (!att->animating  && g_api.input_pressed(g_in, (u8)game_action::GRAVITY_UP)) {
         attempt_gravity_change(att, lvl, direction::UP);
     }
-    else if (!att->animating  && g_api.input_pressed(g_in, input_action::GRAVITY_RIGHT)) {
+    else if (!att->animating  && g_api.input_pressed(g_in, (u8)game_action::GRAVITY_RIGHT)) {
         attempt_gravity_change(att, lvl, direction::RIGHT);
     }
-    else if (!att->animating  && g_api.input_pressed(g_in, input_action::GRAVITY_DOWN)) {
+    else if (!att->animating  && g_api.input_pressed(g_in, (u8)game_action::GRAVITY_DOWN)) {
         attempt_gravity_change(att, lvl, direction::DOWN);
     }
-    else if (!att->animating  && g_api.input_pressed(g_in, input_action::GRAVITY_LEFT)) {
+    else if (!att->animating  && g_api.input_pressed(g_in, (u8)game_action::GRAVITY_LEFT)) {
         attempt_gravity_change(att, lvl, direction::LEFT);
     }
 
