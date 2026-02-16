@@ -34,6 +34,10 @@ static const key_binding g_key_bindings[] = {
 
     // Reset
     { SDLK_R, input_action::RESET },
+
+    // Debug level switching
+    { SDLK_PAGEUP,   input_action::DEBUG_PREV_LEVEL },
+    { SDLK_PAGEDOWN, input_action::DEBUG_NEXT_LEVEL },
 };
 
 static const u32 g_binding_count = sizeof(g_key_bindings) / sizeof(g_key_bindings[0]);

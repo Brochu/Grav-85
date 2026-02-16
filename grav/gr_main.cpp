@@ -11,42 +11,9 @@
 engine_api g_api {};
 input_state *g_in {};
 
-enum class color : u8 {
-    RED,
-    GREEN,
-    BLUE,
-};
-constexpr i32 colors_def[5][4] = {
-    { 255, 0  , 0  , 255 },
-    { 0  , 255, 0  , 255 },
-    { 0  , 0  , 255, 255 },
-
-    { 255, 255, 255, 255 }, // Cratews
-    { 127, 127, 127, 255 }, // Walls
-};
-#define CRATE_COLOR_INDEX 3
-#define WALL_COLOR_INDEX 4
-#define EXPAND_COLOR(idx) colors_def[idx][0], colors_def[idx][1], colors_def[idx][2], colors_def[idx][3]
-
-#define NUM_LEVEL_PER_BUNDLE 5
-#define BYTES_PER_LEVEL 108
-#define BYTES_PER_BUNDLE NUM_LEVEL_PER_BUNDLE * BYTES_PER_LEVEL
-
-/*
-struct bundle {
-    i8 num_levels;
-    level *levels;
-    mem_arena _scratch;
-};
-*/
-
-enum element_type : u8 {
-    CRATE,
-    GEM,
-    COUNT,
-};
-#define ELEMENTS_MAX_NUM 32
+enum class color : u8 { RED, GREEN, BLUE, COUNT };
 #define MAP_MAX_SIZE 256
+#define ELEMENTS_MAX_NUM 32
 
 struct level {
     u8 solid[MAP_MAX_SIZE / 8];       // 1 bit per cell
@@ -65,42 +32,7 @@ inline bool level_is_solid(level *lvl, ivec2 pos) {
     return (lvl->solid[idx / 8] >> (idx % 8)) & 1;
 }
 
-void level_file_init(level *lvl, const char *file_path) {
-    FILE *lvl_file;
-    i32 err = fopen_s(&lvl_file, file_path, "rb");
-    assert(err == 0);
-
-    u8 lvl_data[BYTES_PER_LEVEL];
-    u64 read_len = fread_s(lvl_data, BYTES_PER_LEVEL, BYTES_PER_LEVEL, 1, lvl_file);
-    assert(read_len >= 1);
-    fclose(lvl_file);
-
-    u8 dims = (u8)lvl_data[0];
-    lvl->width = (dims >> 4) & 0xf;
-    lvl->height = dims & 0xf;
-
-    lvl->start_gravity = direction::COUNT;//(direction)lvl_data[1];
-    lvl->num_crates = (i8)lvl_data[2];
-    lvl->num_gems = (i8)lvl_data[3];
-
-    u8 *crate_data = (u8*)&lvl_data[12];
-    for (int i = 0; i < lvl->num_crates; i++) {
-        lvl->crate_starts[i] = unpack_pos(crate_data[i]);
-    }
-
-    u64 colors_data;
-    memcpy(&colors_data, &lvl_data[4], sizeof(u64));
-    u8 *gem_data = (u8*)&lvl_data[44];
-    for (int i = 0; i < lvl->num_gems; i++) {
-        lvl->gem_colors[i] = (color)((colors_data >> (2 * i)) & 0b11);
-        lvl->gem_starts[i] = unpack_pos(gem_data[i]);
-    }
-
-    u8 *solid_data = (u8*)&lvl_data[76];
-    memcpy_s(lvl->solid, MAP_MAX_SIZE / 8, solid_data, MAP_MAX_SIZE / 8);
-}
-void level_data_init(level *lvl, arena_ptr data) { }
-
+enum element_type : u8 { CRATE, GEM, COUNT };
 #define ATTEMPT_MAX_MOVES 99
 
 struct attempt {
@@ -230,11 +162,97 @@ void attempt_check_combos(attempt *att) {
     //TODO: Flood fill to check for gems that should de-activate
 }
 
+#define NUM_LEVEL_PER_MATCH 5
+#define BYTES_PER_LEVEL 108
+#define BYTES_PER_MATCH NUM_LEVEL_PER_MATCH * BYTES_PER_LEVEL
+
+struct match {
+    level *levels;
+    attempt *attempts;
+    i8 *level_indices;
+
+    i8 num_levels;
+    i8 num_players;
+
+    mem_arena _scratch;
+};
+
+void match_read_level(level *lvl, u8 *data, u64 length) {
+    assert(length == BYTES_PER_LEVEL);
+    u8 dims = (u8)data[0];
+    lvl->width = (dims >> 4) & 0xf;
+    lvl->height = dims & 0xf;
+
+    lvl->start_gravity = direction::COUNT;
+    lvl->num_crates = (i8)data[2];
+    lvl->num_gems = (i8)data[3];
+
+    u8 *crate_data = (u8*)&data[12];
+    for (int i = 0; i < lvl->num_crates; i++) {
+        lvl->crate_starts[i] = unpack_pos(crate_data[i]);
+    }
+
+    u64 colors_data;
+    memcpy(&colors_data, &data[4], sizeof(u64));
+    u8 *gem_data = (u8*)&data[44];
+    for (int i = 0; i < lvl->num_gems; i++) {
+        lvl->gem_colors[i] = (color)((colors_data >> (2 * i)) & 0b11);
+        lvl->gem_starts[i] = unpack_pos(gem_data[i]);
+    }
+
+    u8 *solid_data = (u8*)&data[76];
+    memcpy_s(lvl->solid, MAP_MAX_SIZE / 8, solid_data, MAP_MAX_SIZE / 8);
+}
+
+void match_init(match *match, i8 num_players, u8 *data, u64 length) {
+    if (match->_scratch.base == nullptr) {
+        u64 required_mem = 
+            sizeof(level) * NUM_LEVEL_PER_MATCH + // Each level of the match
+            sizeof(attempt) * NUM_LEVEL_PER_MATCH * num_players + // Each attempts / level / player
+            sizeof(i8) * num_players + // Current level / player
+            64;
+        g_api.mem_arena_init(&match->_scratch, required_mem);
+    } else {
+        g_api.mem_arena_reset(&match->_scratch);
+    }
+
+    match->num_levels = NUM_LEVEL_PER_MATCH;
+    match->levels = (level*)g_api.mem_arena_alloc(&match->_scratch, sizeof(level) * NUM_LEVEL_PER_MATCH, alignof(level)).p;
+    for (i32 i = 0; i < NUM_LEVEL_PER_MATCH; i++) {
+        match_read_level(&match->levels[i], &data[i * BYTES_PER_LEVEL], BYTES_PER_LEVEL);
+    }
+    match->level_indices = (i8*)g_api.mem_arena_alloc(&match->_scratch, sizeof(i8) * num_players, alignof(i8)).p;
+
+    match->num_players = num_players;
+    match->attempts = (attempt*)g_api.mem_arena_alloc(&match->_scratch, sizeof(attempt) * NUM_LEVEL_PER_MATCH * num_players, alignof(attempt)).p;
+    for (i32 i = 0; i < num_players; i++) {
+        match->level_indices[i] = 0;
+
+        for (i32 j = 0; j < NUM_LEVEL_PER_MATCH; j++) {
+            i32 attempt_index = (i * NUM_LEVEL_PER_MATCH) + j;
+            attempt_level_init(&match->attempts[attempt_index], &match->levels[j]);
+        }
+    }
+}
+
+void match_current_attempt(match *match, i8 player_index, level **lvl, attempt **att) {
+    i8 lvl_index = match->level_indices[player_index];
+    *lvl = &match->levels[lvl_index];
+    *att = &match->attempts[(player_index * match->num_levels) + lvl_index];
+}
+
+void match_close(match *match) {
+    match->num_levels = 0;
+    match->num_players = 0;
+
+    g_api.mem_arena_clear(&match->_scratch);
+}
+
 config g_cfg;
 f32 g_gravity_speed = 0;
 
-level g_lvl;
-attempt g_att;
+match g_match;
+i8 player_index = 0;
 
 void grav_init(engine_api api) {
     g_api = api;
@@ -247,29 +265,50 @@ void grav_init(engine_api api) {
     }
     printf("[GAME] Loaded config; g_gravity_speed = %f\n", g_gravity_speed);
 
-    level_file_init(&g_lvl, "assets/5-level.bin");
-    attempt_level_init(&g_att, &g_lvl);
+    FILE *lvl_file;
+    i32 err = fopen_s(&lvl_file, "assets/bundle.bin", "rb");
+    assert(err == 0);
+
+    u8 lvl_data[BYTES_PER_MATCH];
+    u64 read_len = fread_s(lvl_data, BYTES_PER_MATCH, BYTES_PER_MATCH, 1, lvl_file);
+    assert(read_len >= 1);
+    fclose(lvl_file);
+
+    match_init(&g_match, 1, lvl_data, BYTES_PER_MATCH);
 }
 
 void grav_tick(f32 dt) {
-    if (!g_att.animating  && g_api.input_pressed(g_in, input_action::RESET)) {
-        attempt_level_reset(&g_att, &g_lvl);
+    level *lvl;
+    attempt *att;
+    match_current_attempt(&g_match, player_index, &lvl, &att);
+
+    if (g_api.input_pressed(g_in, input_action::RESET)) {
+        attempt_level_reset(att, lvl);
     }
 
-    if (!g_att.animating  && g_api.input_pressed(g_in, input_action::GRAVITY_UP)) {
-        attempt_gravity_change(&g_att, &g_lvl, direction::UP);
+    if (g_api.input_pressed(g_in, input_action::DEBUG_PREV_LEVEL) && g_match.level_indices[player_index] > 0) {
+        g_match.level_indices[player_index]--;
+        match_current_attempt(&g_match, player_index, &lvl, &att);
     }
-    else if (!g_att.animating  && g_api.input_pressed(g_in, input_action::GRAVITY_RIGHT)) {
-        attempt_gravity_change(&g_att, &g_lvl, direction::RIGHT);
-    }
-    else if (!g_att.animating  && g_api.input_pressed(g_in, input_action::GRAVITY_DOWN)) {
-        attempt_gravity_change(&g_att, &g_lvl, direction::DOWN);
-    }
-    else if (!g_att.animating  && g_api.input_pressed(g_in, input_action::GRAVITY_LEFT)) {
-        attempt_gravity_change(&g_att, &g_lvl, direction::LEFT);
+    if (g_api.input_pressed(g_in, input_action::DEBUG_NEXT_LEVEL) && g_match.level_indices[player_index] < g_match.num_levels - 1) {
+        g_match.level_indices[player_index]++;
+        match_current_attempt(&g_match, player_index, &lvl, &att);
     }
 
-    if (g_att.animating) {
+    if (!att->animating  && g_api.input_pressed(g_in, input_action::GRAVITY_UP)) {
+        attempt_gravity_change(att, lvl, direction::UP);
+    }
+    else if (!att->animating  && g_api.input_pressed(g_in, input_action::GRAVITY_RIGHT)) {
+        attempt_gravity_change(att, lvl, direction::RIGHT);
+    }
+    else if (!att->animating  && g_api.input_pressed(g_in, input_action::GRAVITY_DOWN)) {
+        attempt_gravity_change(att, lvl, direction::DOWN);
+    }
+    else if (!att->animating  && g_api.input_pressed(g_in, input_action::GRAVITY_LEFT)) {
+        attempt_gravity_change(att, lvl, direction::LEFT);
+    }
+
+    if (att->animating) {
         i32 num_moves = 0;
         auto anim_func = [&](vec2 *offsets, i32 i) {
             if (offsets[i] != vec2_zero) {
@@ -281,24 +320,40 @@ void grav_tick(f32 dt) {
             }
         };
 
-        for (i32 i = 0; i < g_att.num_crates; i++) {
-            anim_func(g_att.crate_offsets, i);
+        for (i32 i = 0; i < att->num_crates; i++) {
+            anim_func(att->crate_offsets, i);
         }
-        for (i32 i = 0; i < g_att.num_gems; i++) {
-            anim_func(g_att.gem_offsets, i);
+        for (i32 i = 0; i < att->num_gems; i++) {
+            anim_func(att->gem_offsets, i);
         }
 
         if (num_moves <= 0) {
-            g_att.animating = false;
+            att->animating = false;
         }
     }
 }
 
+constexpr i32 colors_def[5][4] = {
+    { 255, 0  , 0  , 255 },
+    { 0  , 255, 0  , 255 },
+    { 0  , 0  , 255, 255 },
+
+    { 255, 255, 255, 255 }, // Cratews
+    { 127, 127, 127, 255 }, // Walls
+};
+#define CRATE_COLOR_INDEX 3
+#define WALL_COLOR_INDEX 4
+#define EXPAND_COLOR(idx) colors_def[idx][0], colors_def[idx][1], colors_def[idx][2], colors_def[idx][3]
+
 void grav_draw(f32 dt) {
+    level *lvl;
+    attempt *att;
+    match_current_attempt(&g_match, player_index, &lvl, &att);
+
     // Render gravity indicator
     f32 center_x = 600.0f, center_y = 30.0f;
     f32 len = 15.0f;
-    ivec2 dir = direction_vectors[(i32)g_att.current_gravity];
+    ivec2 dir = direction_vectors[(i32)att->current_gravity];
     f32 dx = (f32)dir.x * len;
     f32 dy = (f32)dir.y * len;
 
@@ -314,10 +369,10 @@ void grav_draw(f32 dt) {
     SDL_SetRenderDrawColor(g_api.context, EXPAND_COLOR(WALL_COLOR_INDEX));
     f32 cell_size = 32;
 
-    for (i32 y = 0; y < g_lvl.height; y++) {
-        for (i32 x = 0; x < g_lvl.width; x++) {
+    for (i32 y = 0; y < lvl->height; y++) {
+        for (i32 x = 0; x < lvl->width; x++) {
             ivec2 p { x, y };
-            if (level_is_solid(&g_lvl, p)) {
+            if (level_is_solid(lvl, p)) {
                 SDL_FRect r { x*cell_size, y*cell_size, cell_size-5, cell_size-5 };
                 SDL_RenderFillRect(g_api.context, &r);
             }
@@ -326,19 +381,19 @@ void grav_draw(f32 dt) {
 
     // Render elements crates and gems
     SDL_SetRenderDrawColor(g_api.context, EXPAND_COLOR(CRATE_COLOR_INDEX));
-    for (i32 i = 0; i < g_att.num_crates; i++) {
-        auto [x, y] = g_att.crates[i];
-        auto [ox, oy] = g_att.crate_offsets[i];
+    for (i32 i = 0; i < att->num_crates; i++) {
+        auto [x, y] = att->crates[i];
+        auto [ox, oy] = att->crate_offsets[i];
         SDL_FRect r { (x+ox)*cell_size, (y+oy)*cell_size, cell_size-5, cell_size-5 };
         SDL_RenderFillRect(g_api.context, &r);
     }
 
-    for (i32 i = 0; i < g_att.num_gems; i++) {
-        if (!((g_att.gems_active >> i) & 1)) continue;
-        SDL_SetRenderDrawColor(g_api.context, EXPAND_COLOR((i32)g_lvl.gem_colors[i]));
+    for (i32 i = 0; i < att->num_gems; i++) {
+        if (!((att->gems_active >> i) & 1)) continue;
+        SDL_SetRenderDrawColor(g_api.context, EXPAND_COLOR((i32)lvl->gem_colors[i]));
 
-        auto [x, y] = g_att.gems[i];
-        auto [ox, oy] = g_att.gem_offsets[i];
+        auto [x, y] = att->gems[i];
+        auto [ox, oy] = att->gem_offsets[i];
         SDL_FRect r { (x+ox)*cell_size, (y+oy)*cell_size, cell_size-5, cell_size-5 };
         SDL_RenderFillRect(g_api.context, &r);
     }
@@ -347,5 +402,6 @@ void grav_draw(f32 dt) {
 }
 
 void grav_exit() {
+    match_close(&g_match);
     g_api.config_free(&g_cfg);
 }
