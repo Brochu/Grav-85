@@ -37,11 +37,13 @@ void mem_arena_init(mem_arena *arena, u64 max_size) {
 }
 
 void mem_arena_reset(mem_arena *arena) {
+    //TODO: Maybe adding tracking information here, updated only for debug builds
     arena->next = 0;
     arena->gen++;
 }
 
 void mem_arena_clear(mem_arena *arena) {
+    //TODO: Maybe adding tracking information here, updated only for debug builds
     qg_free(arena->base);
     arena->base = nullptr;
 
@@ -51,6 +53,7 @@ void mem_arena_clear(mem_arena *arena) {
 }
 
 arena_ptr mem_arena_alloc(mem_arena *arena, u64 size, u64 align) {
+    //TODO: Maybe adding tracking information here, updated only for debug builds
     u64 off = align_fwd(arena->next, align);
 
     if (off + size > arena->cap) {

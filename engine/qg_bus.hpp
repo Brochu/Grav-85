@@ -8,14 +8,22 @@ enum class event_type : u16 {
 
     // ENGINE EVENTS (0-499)
     // These are reserved for engine-level events
-    ENTITY_SPAWNED,
-    ENTITY_DESTROYED,
-    PLAYER_DAMAGED,
-    LEVEL_LOADED,
+    PERF_FRAME_STAT,
+    PERF_MEMORY_STAT,
+    PERF_BUDGET_EXCEEDED,
+
+    RENDER_RESOLUTION_CHANGED,
+    RENDER_BACKEND_LOST,
+    RENDER_BACKEND_RESTORED,
+
+    ASSET_LOADED,
+    ASSET_UNLOADED,
+
+    AUDIO_REQUEST_PLAY,
 
     // Add more engine event types as needed (up to 499)
-
     ENGINE_RESERVED_END = 499,
+    GAME_EVENTS_START = 512,
 
     // GAME EVENTS (500-2047)
     // Games can define their own event types starting from here
@@ -26,7 +34,6 @@ enum class event_type : u16 {
     //       MERCHANT_OPENED,
     //       // ... more game events
     //   };
-    GAME_EVENTS_START = 512,
 
     COUNT = 1024  // Total capacity for all event types
 };
@@ -34,24 +41,46 @@ enum class event_type : u16 {
 // ===== ENGINE EVENT DATA STRUCTURES =====
 // Define the data structures for engine-provided events here
 
-struct entity_spawned_event {
-    u32 entity_id;
-    f32 x, y, z;
+struct perf_frame_stats_event {
+    f32 delta_time;
+    f32 fps;
 };
 
-struct entity_destroyed_event {
-    u32 entity_id;
+struct perf_memory_stats_event {
+    u64 used_bytes;
+    u64 peak_bytes;
+    u64 capacity_bytes;
 };
 
-struct player_damaged_event {
-    u32 player_id;
-    i32 damage;
-    u32 source_id;
+struct perf_budget_exceeded_event {
+    const char *budget_name; // Needs to be static litteral
+    f32 current_value;
+    f32 budget_value;
 };
 
-struct level_loaded_event {
-    const char* level_name;
-    u32 level_id;
+struct render_resolution_changed_event {
+    u32 old_width;
+    u32 old_height;
+
+    u32 new_width;
+    u32 new_height;
+};
+// No specific data to send for RENDER_BACKEND_LOST and RENDER_BACKEND_RESTORED
+
+struct asset_loaded_event {
+    u32 asset_id;
+};
+
+struct asset_loaded_unevent {
+    u32 asset_id;
+};
+
+struct audio_request_play_event {
+    u32 sound_id;
+    u32 emitter_id;
+
+    f32 volume;
+    f32 pitch;
 };
 
 // Add more engine event data structures as needed

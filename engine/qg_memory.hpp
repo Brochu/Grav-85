@@ -13,6 +13,8 @@ struct mem_arena {
     u64 next;
     u64 cap;
     u64 gen;
+
+    //TODO: Maybe adding tracking information here, updated only for debug builds
 };
 
 struct arena_ptr {

@@ -13,9 +13,9 @@ input_state *g_in {};
 
 enum class game_action : u8 {
     GRAVITY_UP, GRAVITY_DOWN, GRAVITY_LEFT, GRAVITY_RIGHT,
-    RESET, DEBUG_PREV_LEVEL, DEBUG_NEXT_LEVEL,
     MENU_UP, MENU_DOWN, MENU_LEFT, MENU_RIGHT,
     MENU_CONFIRM, MENU_CANCEL,
+    RESET, DEBUG_PREV_LEVEL, DEBUG_NEXT_LEVEL,
     COUNT
 };
 
@@ -166,8 +166,13 @@ void attempt_gravity_change(attempt *att, level *lvl, direction new_gravity) {
     }
 }
 
-void attempt_check_combos(attempt *att) {
+void attempt_check_combos(attempt *att, level *lvl) {
+    int num_combos = 0;
     //TODO: Flood fill to check for gems that should de-activate
+
+    if (num_combos > 0) {
+        attempt_gravity_change(att, lvl, att->current_gravity);
+    }
 }
 
 #define NUM_LEVEL_PER_MATCH 5
@@ -363,6 +368,7 @@ void grav_tick(f32 dt) {
 
         if (num_moves <= 0) {
             att->animating = false;
+            attempt_check_combos(att, lvl);
         }
     }
 }
