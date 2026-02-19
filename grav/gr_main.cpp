@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstdio>
 
 #include "qg_config.hpp"
@@ -94,7 +95,8 @@ bool attempt_element_at(attempt *att, ivec2 pos) {
     }
 
     for (i32 i = 0; i < att->num_gems; i++) {
-        if (att->gems[i] == pos) {
+        const bool gem_active = (att->gems_active & (1 << i)) != 0;
+        if (gem_active && att->gems[i] == pos) {
             return true;
         }
     }
@@ -104,10 +106,6 @@ bool attempt_element_at(attempt *att, ivec2 pos) {
 
 void attempt_gravity_change(attempt *att, level *lvl, direction new_gravity) {
     //TODO: Do we need to store the level in the run itself?
-    if (new_gravity == att->current_gravity) {
-        return;
-    }
-
     att->current_gravity = new_gravity;
     ivec2 dir = direction_vectors[(u8)new_gravity];
     ivec2 opp = direction_vectors[((u8)new_gravity + 2) % 4];
@@ -167,8 +165,62 @@ void attempt_gravity_change(attempt *att, level *lvl, direction new_gravity) {
 }
 
 void attempt_check_combos(attempt *att, level *lvl) {
-    int num_combos = 0;
-    //TODO: Flood fill to check for gems that should de-activate
+    i32 num_combos = 0;
+    u32 gems_to_check = att->gems_active;
+
+    for (i32 i = 0; i < att->num_gems; i++) {
+        if (gems_to_check == 0) {
+            // Done checking all gems
+            break;
+        }
+        assert(att->gem_offsets[i] == vec2_zero); // Make sure the gem is not stil moving
+
+        const bool gem_inactive = (att->gems_active & (1u << i)) == 0;
+        const bool gem_visited = (gems_to_check & (1u << i)) == 0;
+        if (gem_inactive || gem_visited) {
+            continue;
+        }
+
+        i32 q_head = 0;
+        i32 q_tail = 0;
+        i32 queue[ELEMENTS_MAX_NUM];
+        queue[q_tail++] = i;
+        gems_to_check &= ~(1 << i);
+
+        i32 combo_elems[ELEMENTS_MAX_NUM];
+        combo_elems[0] = i;
+        i32 combo_len = 1;
+        while (q_head != q_tail) {
+            i32 current_index = queue[q_head++];
+            ivec2 pos = att->gems[current_index];
+
+            for (i32 d = 0; d < 4; d++) {
+                ivec2 neighbor = pos + direction_vectors[d];
+
+                for (i32 j = 0; j < att->num_gems; j++) {
+                    const bool other_inactive = (att->gems_active & (1 << j)) == 0;
+                    const bool other_visited = (gems_to_check & (1 << j)) == 0;
+                    if (other_inactive || other_visited) {
+                        continue;
+                    }
+
+                    if (neighbor == att->gems[j] && lvl->gem_colors[current_index] == lvl->gem_colors[j]) {
+                        gems_to_check &= ~(1u << j);
+                        queue[q_tail++] = j;
+                        combo_elems[combo_len++] = j;
+                    }
+                }
+            }
+        }
+
+        if (combo_len > 1) {
+            num_combos++;
+
+            for (i32 k = 0; k < combo_len; k++) {
+                att->gems_active &= ~(1u << combo_elems[k]);
+            }
+        }
+    }
 
     if (num_combos > 0) {
         attempt_gravity_change(att, lvl, att->current_gravity);
