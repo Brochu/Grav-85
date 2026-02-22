@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cstdio>
 
+#include "qg_bus.hpp"
 #include "qg_config.hpp"
 #include "qg_input.hpp"
 #include "qg_math.hpp"
@@ -312,6 +313,41 @@ void match_close(match *match) {
 
     g_api.mem_arena_clear(&match->_scratch);
 }
+
+enum class game_event_type : u16 {
+    LEVEL_GRAVITY_CHANGED = (u16)event_type::GAME_EVENTS_START,
+    LEVEL_GEM_COMBO,
+    LEVEL_COMPLETED,
+    LEVEL_RESET,
+
+    MATCH_COMPLETED,
+};
+
+struct level_gravity_changed_event {
+    i8 player_index;
+    direction old_dir;
+    direction new_dir;
+};
+
+struct level_gem_combo_event {
+    i8 player_index;
+    i8 count;
+    color gem_color;
+};
+
+struct level_completed_event {
+    i8 player_index;
+    u64 time_ns;
+};
+
+struct level_reset_event {
+    i8 player_index;
+};
+
+struct match_completed_event {
+    i8 winner_index;
+    u64 total_time_ns;
+};
 
 config g_cfg;
 f32 g_gravity_speed = 0;
