@@ -78,14 +78,15 @@ void gamelib_refresh() {
 
 #define WINDOW_VERSION "ALPHA" //TODO: Export version from the main game DLL
 #define WINDOW_TITLE "Grav - 85"
-#define WINDOW_WIDTH 800
-#define WINDOW_HEIGHT 600
 #define WINDOW_FPS 60
 
 static const u64 NS_PER_FRAME = (1000 * 1000 * 1000 / WINDOW_FPS);
 static const u64 MAX_LAG_TIME = NS_PER_FRAME * 5; // Cap catchup to 5 ticks
 static const f32 FRAME_TIME = SDL_NS_TO_SECONDS((f32)NS_PER_FRAME);
+
 bool g_running = true;
+i32 window_width = 800;
+i32 window_height = 600;
 
 int main(int argc, char **argv) {
     rand_seed(time(NULL));
@@ -98,7 +99,7 @@ int main(int argc, char **argv) {
 
     SDL_Window *window;
     SDL_Renderer *context;
-    if (!SDL_CreateWindowAndRenderer("[" WINDOW_VERSION "] " WINDOW_TITLE, WINDOW_WIDTH, WINDOW_HEIGHT, 0, &window, &context)) {
+    if (!SDL_CreateWindowAndRenderer("[" WINDOW_VERSION "] " WINDOW_TITLE, window_width, window_height, SDL_WINDOW_RESIZABLE, &window, &context)) {
         printf("Could not create Window or Renderer\nerror: %s\n", SDL_GetError());
         return EXIT_FAILURE;
     }
@@ -155,6 +156,21 @@ int main(int argc, char **argv) {
             }
             if (event.type == SDL_EVENT_KEY_UP) {
                 input_handle_key(&g_input, event.key.key, false);
+            }
+            if (event.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED) {
+                i32 new_width = 0;
+                i32 new_height = 0;
+                bool res = SDL_GetWindowSizeInPixels(window, &new_width, &new_height);
+                assert(res);
+
+                if (window_width != new_width || window_height != new_height) {
+                    render_resolution_changed_event e;
+                    e.old_width = window_width;
+                    e.old_height = window_height;
+                    e.new_width = new_width;
+                    e.new_height = new_height;
+                    bus_fire_event(&g_bus, event_type::RENDER_RESOLUTION_CHANGED, e);
+                }
             }
         }
         input_update(&g_input);
