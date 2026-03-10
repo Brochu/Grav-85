@@ -1,5 +1,5 @@
-#include <algorithm>
 #include <cstdio>
+#include <cstring>
 
 #include "qg_bus.hpp"
 #include "qg_config.hpp"
@@ -12,6 +12,7 @@
 
 engine_api g_api {};
 input_state *g_in {};
+mem_arena *g_mem {};
 
 enum class game_action : u8 {
     GRAVITY_UP, GRAVITY_DOWN, GRAVITY_LEFT, GRAVITY_RIGHT,
@@ -349,15 +350,43 @@ struct match_completed_event {
     u64 total_time_ns;
 };
 
+enum class game_phase : u8 {
+    INIT,
+    MAIN_MENU,
+    LOBBY,
+    IN_GAME,
+    RESULTS,
+};
+
+struct game_state {
+    game_phase phase;
+
+    config      cfg;
+    f32         gravity_speed;
+
+    match       current_match;
+    i8          player_index;
+};
+
+game_state *g_s;
+
 config g_cfg;
 f32 g_gravity_speed = 0;
 
 match g_match;
 i8 player_index = 0;
 
+u64 grav_state_size() {
+    return sizeof(game_state);
+}
+
 void grav_init(engine_api api) {
     g_api = api;
     g_in = api.input;
+    g_mem = api.core_mem;
+
+    // More logic here to make sure we can get the previous game_state in the case of hot reloading
+    g_s = (game_state*)g_api.mem_arena_alloc(g_mem, grav_state_size(), alignof(game_state)).p;
 
     // Register key bindings
     auto bind = [&](key_code k, game_action a) {
@@ -405,6 +434,14 @@ void grav_init(engine_api api) {
 }
 
 void grav_tick(f32 dt) {
+    if (g_s->phase == game_phase::INIT) {
+        // Special init logic
+        g_s->phase = game_phase::IN_GAME;
+    }
+    else if (g_s->phase == game_phase::IN_GAME) {
+    }
+
+    //TODO: Move this under IN_GAME logic
     level *lvl;
     attempt *att;
     match_current_attempt(&g_match, player_index, &lvl, &att);

@@ -128,9 +128,13 @@ int main(int argc, char **argv) {
     input_init(&g_input);
     g_eng.input = &g_input;
 
-    g_eng.context = context;
-    // -----------------------------------------
+    mem_arena g_core;
+    mem_arena_init(&g_core, game_state_size());
+    g_eng.core_mem = &g_core;
 
+    g_eng.context = context;
+
+    // GAME INIT SEQUENCE
     game_init(g_eng);
 
     u64 last_time = SDL_GetTicksNS();
