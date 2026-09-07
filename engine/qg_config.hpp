@@ -1,38 +1,7 @@
 #pragma once
+#include "qg_shared.hpp"
 #include "qg_shared_types.hpp"
 #include "qg_memory.hpp"
-
-enum class value_type : u8 {
-    INTEGER,
-    FLOAT,
-    RANGE,
-    ARRAY,
-    STRING,
-};
-
-struct config_value {
-    value_type type;
-
-    union {
-        i32 integer;
-        f32 flt;
-
-        struct {
-            i32 min;
-            i32 max;
-        } range;
-
-        struct {
-            i32 *arr;
-            u64 len;
-        } array;
-
-        struct {
-            const char *arr;
-            u64 len;
-        } str;
-    };
-};
 
 #define CONFIG_NUM_KEYS 128
 

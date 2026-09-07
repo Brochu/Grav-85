@@ -1,13 +1,6 @@
 #pragma once
+#include "qg_shared.hpp"
 #include "qg_shared_types.hpp"
-
-enum class key_code : u16 {
-    W, A, S, D, R,
-    UP, DOWN, LEFT, RIGHT,
-    RETURN, SPACE, ESCAPE,
-    PAGE_UP, PAGE_DOWN,
-    COUNT
-};
 
 struct key_binding { key_code key; u8 action; };
 

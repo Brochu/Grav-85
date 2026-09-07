@@ -1,41 +1,7 @@
 #pragma once
+#include "qg_shared.hpp"
 #include "qg_shared_types.hpp"
 #include "qg_memory.hpp"
-
-// Define your event types here
-enum class event_type : u16 {
-    NONE = 0,
-
-    // ENGINE EVENTS (0-127)
-    // These are reserved for engine-level events
-    PERF_FRAME_STAT,
-    PERF_MEMORY_STAT,
-    PERF_BUDGET_EXCEEDED,
-
-    RENDER_RESOLUTION_CHANGED,
-    RENDER_BACKEND_LOST,
-    RENDER_BACKEND_RESTORED,
-
-    ASSET_LOADED,
-    ASSET_UNLOADED,
-
-    AUDIO_REQUEST_PLAY,
-
-    // Add more engine event types as needed (up to 127)
-    GAME_EVENTS_START = 128,
-
-    // GAME EVENTS (128-256)
-    // Games can define their own event types starting from here
-    // Example in game code:
-    //   enum class game_event : u16 {
-    //       QUEST_COMPLETED = (u16)event_type::GAME_EVENTS_START,
-    //       DIALOGUE_STARTED,
-    //       MERCHANT_OPENED,
-    //       // ... more game events
-    //   };
-
-    COUNT = 256  // Total capacity for all event types
-};
 
 // ===== ENGINE EVENT DATA STRUCTURES =====
 // Define the data structures for engine-provided events here
@@ -81,25 +47,7 @@ struct audio_request_play_event {
     f32 volume;
     f32 pitch;
 };
-
 // Add more engine event data structures as needed
-
-// ===== EVENT HANDLER =====
-
-// Event handler signature: receives event type and data pointer
-typedef void (*event_handler_fn)(event_type type, void* data, void* user_data);
-
-// Handler ID that encodes generation, slot index, and event type
-struct handler_id {
-    union {
-        u64 packed;
-        struct {
-            u32 generation;  // Must match slot's generation to be valid
-            u16 slot_idx;    // Which slot in the handlers array
-            u16 type_idx;    // Event type index
-        };
-    };
-};
 
 #define INVALID_HANDLER_ID (handler_id{0})
 

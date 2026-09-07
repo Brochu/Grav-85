@@ -4,10 +4,55 @@
 #include <cstring>
 
 // EVENTS ======================================
-enum class event_type : u16;
+// Define your event types here
+enum class event_type : u8 {
+    NONE = 0,
+
+    // ENGINE EVENTS (0-127)
+    // These are reserved for engine-level events
+    PERF_FRAME_STAT,
+    PERF_MEMORY_STAT,
+    PERF_BUDGET_EXCEEDED,
+
+    RENDER_RESOLUTION_CHANGED,
+    RENDER_BACKEND_LOST,
+    RENDER_BACKEND_RESTORED,
+
+    ASSET_LOADED,
+    ASSET_UNLOADED,
+
+    AUDIO_REQUEST_PLAY,
+
+    // Add more engine event types as needed (up to 127)
+    GAME_EVENTS_START = 128,
+
+    // GAME EVENTS (128-255)
+    // Games can define their own event types starting from here
+    // Example in game code:
+    //   enum class game_event : u16 {
+    //       QUEST_COMPLETED = (u16)event_type::GAME_EVENTS_START,
+    //       DIALOGUE_STARTED,
+    //       MERCHANT_OPENED,
+    //       // ... more game events
+    //   };
+
+    COUNT = 255  // Total capacity for all event types
+};
+
+// Handler ID that encodes generation, slot index, and event type
+struct handler_id {
+    union {
+        u64 packed;
+        struct {
+            u32 generation;  // Must match slot's generation to be valid
+            u16 slot_idx;    // Which slot in the handlers array
+            u16 type_idx;    // Event type index
+        };
+    };
+};
+
+typedef void (*event_handler_fn)(event_type type, void* data, void* user_data);
 struct event_bus;
-struct handler_id;
-typedef void (*event_handler_fn)(event_type, void*, void*);
 #define BUS_MODULE_DEF \
     X(void, bus_init, (event_bus*, u64)) \
     X(void, bus_free, (event_bus*)) \
@@ -18,8 +63,20 @@ typedef void (*event_handler_fn)(event_type, void*, void*);
     X(void, bus_reset, (event_bus*))
 
 // CONFIG ======================================
-enum class value_type : u8;
-struct config_value;
+enum class value_type : u8 { INTEGER, FLOAT, RANGE, ARRAY, STRING };
+
+struct config_value {
+    value_type type;
+
+    union {
+        i32 integer;
+        f32 flt;
+
+        struct { i32 min; i32 max; } range;
+        struct { i32 *arr; u64 len; } array;
+        struct { const char *arr; u64 len; } str;
+    };
+};
 struct config;
 #define CONFIG_MODULE_DEF \
     X(void, config_init, (config*, const char*)) \
@@ -27,7 +84,13 @@ struct config;
     X(bool, config_read, (config*, const char*, config_value*))
 
 // INPUT  ======================================
-enum class key_code : u16;
+enum class key_code : u16 {
+    W, A, S, D, R,
+    UP, DOWN, LEFT, RIGHT,
+    RETURN, SPACE, ESCAPE,
+    PAGE_UP, PAGE_DOWN,
+    COUNT
+};
 struct input_state;
 #define INPUT_MODULE_DEF \
     X(void, input_bind_key, (input_state*, key_code, u8)) \
