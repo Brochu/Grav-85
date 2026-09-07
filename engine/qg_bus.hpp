@@ -6,7 +6,7 @@
 enum class event_type : u16 {
     NONE = 0,
 
-    // ENGINE EVENTS (0-499)
+    // ENGINE EVENTS (0-127)
     // These are reserved for engine-level events
     PERF_FRAME_STAT,
     PERF_MEMORY_STAT,
@@ -21,11 +21,10 @@ enum class event_type : u16 {
 
     AUDIO_REQUEST_PLAY,
 
-    // Add more engine event types as needed (up to 499)
-    ENGINE_RESERVED_END = 499,
-    GAME_EVENTS_START = 512,
+    // Add more engine event types as needed (up to 127)
+    GAME_EVENTS_START = 128,
 
-    // GAME EVENTS (500-2047)
+    // GAME EVENTS (128-256)
     // Games can define their own event types starting from here
     // Example in game code:
     //   enum class game_event : u16 {
@@ -35,7 +34,7 @@ enum class event_type : u16 {
     //       // ... more game events
     //   };
 
-    COUNT = 1024  // Total capacity for all event types
+    COUNT = 256  // Total capacity for all event types
 };
 
 // ===== ENGINE EVENT DATA STRUCTURES =====

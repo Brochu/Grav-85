@@ -34,6 +34,7 @@ void mem_arena_init(mem_arena *arena, u64 max_size) {
     }
     arena->next = 0;
     arena->cap = max_size;
+    arena->gen = 1;
 }
 
 void mem_arena_reset(mem_arena *arena) {
