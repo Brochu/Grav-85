@@ -121,7 +121,7 @@ int main(int argc, char **argv) {
     PARSE_MODULE_DEF
     RANDOM_MODULE_DEF
     #undef X
-    g_game = game_get_api(g_eng);
+    g_game = game_get_api(&g_eng);
     if (g_game.game_init == nullptr) {
         g_running = false;
     }

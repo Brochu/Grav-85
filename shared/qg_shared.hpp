@@ -184,4 +184,4 @@ struct game_api {
 extern "C" game_api GRAV_API grav_get_api(engine_api *eng);
 
 #define GAME_MODULE_DEF \
-    X(game_api, game_get_api, "grav_get_api", (engine_api))
+    X(game_api, game_get_api, "grav_get_api", (engine_api *))
