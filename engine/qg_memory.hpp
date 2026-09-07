@@ -1,4 +1,5 @@
 #pragma once
+#include "qg_shared.hpp"
 #include "qg_shared_types.hpp"
 
 #include <cassert>
@@ -15,16 +16,6 @@ struct mem_arena {
     u64 gen;
 
     //TODO: Maybe adding tracking information here, updated only for debug builds
-};
-
-struct arena_ptr {
-    u8 *p;
-    u64 gen;
-};
-
-struct arena_off {
-    u64 off;
-    u64 gen;
 };
 
 void mem_arena_init(mem_arena *arena, u64 max_size);

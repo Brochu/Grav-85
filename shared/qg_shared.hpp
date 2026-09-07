@@ -1,8 +1,9 @@
 #pragma once
 #include "qg_shared_types.hpp"
 
-// ENGINE ======================================
+#include <cstring>
 
+// EVENTS ======================================
 enum class event_type : u16;
 struct event_bus;
 struct handler_id;
@@ -16,6 +17,7 @@ typedef void (*event_handler_fn)(event_type, void*, void*);
     X(void, bus_process, (event_bus*)) \
     X(void, bus_reset, (event_bus*))
 
+// CONFIG ======================================
 enum class value_type : u8;
 struct config_value;
 struct config;
@@ -24,6 +26,7 @@ struct config;
     X(void, config_free, (config*)) \
     X(bool, config_read, (config*, const char*, config_value*))
 
+// INPUT  ======================================
 enum class key_code : u16;
 struct input_state;
 #define INPUT_MODULE_DEF \
@@ -32,8 +35,15 @@ struct input_state;
     X(bool, input_pressed, (input_state*, u8)) \
     X(bool, input_released, (input_state*, u8))
 
-struct arena_ptr;
-struct arena_off;
+// MEM    ======================================
+struct arena_ptr {
+    u8 *p;
+    u64 gen;
+};
+struct arena_off {
+    u64 off;
+    u64 gen;
+};
 struct mem_arena;
 #define MEMORY_MODULE_DEF \
     X(void*, qg_malloc, (u64)) \
@@ -46,6 +56,7 @@ struct mem_arena;
     X(arena_ptr, mem_arena_alloc, (mem_arena*, u64, u64)) \
     X(arena_off, mem_arena_offloc, (mem_arena*, u64, u64))
 
+// PARSE  ======================================
 struct strview {
     const char* ptr;
     size_t len;
@@ -62,6 +73,7 @@ static inline strview sv(const char *s) {
     X(u64, sv_split, (strview, const char*, strview*, u64)) \
     X(bool, sv_split_once, (strview, const char*, strview*, strview*)) \
 
+// RANDOM ======================================
 #define RANDOM_MODULE_DEF \
     X(void, rand_seed, (i64)) \
     X(f32, rand_float01, (void)) \
@@ -71,6 +83,7 @@ static inline strview sv(const char *s) {
 //TODO: Look into having a separate renderer based off of SDL3, could also make it hot-reloadable?
 struct SDL_Renderer;
 
+// ENGINE ======================================
 struct engine_api {
     #define X(ret, name, params) ret (*name) params;
 
@@ -94,7 +107,6 @@ struct engine_api {
 extern engine_api g_eng;
 
 // GAME   ======================================
-
 #define GRAV_API __declspec(dllexport)
 
 extern "C" u64  GRAV_API grav_state_size();
