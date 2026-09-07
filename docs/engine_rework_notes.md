@@ -69,7 +69,7 @@ Independent of any restructuring; fix first so later work isn't debugging these.
    (`grav/gr_main.cpp:253`), and `grav_draw` indexes the 4-element
    `direction_vectors[]` with it (`grav/gr_main.cpp:521`) before any input corrects
    it. Out-of-bounds read on frame 1.
-4. `extern engine_api g_eng;` (`shared/shared.hpp:84`) is declared and never defined.
+4. `extern engine_api g_eng;` (`shared/qg_shared.hpp:84`) is declared and never defined.
    The only `g_eng` is a local in `main()` (`engine/qg_main.cpp:113`), so
    `bus_fire_event` works at `engine/qg_main.cpp:176` only by scope accident and
    cannot link from the game DLL at all.
@@ -90,34 +90,67 @@ compiles with `-Iengine\` and can reach every layout we own. Split it:
     <game_includes>-Igrav\ -Ishared\ -Ilibs\SDL3-3.4.0\</game_includes>
     <engine_includes>-Iengine\ -Ishared\ -Ilibs\SDL3-3.4.0\</engine_includes>
 
-Target layout (mirrors `RenderSystem.h` / `tr_local.h`):
+The driver is **types, not MODULE_DEFs**. The `*_MODULE_DEF` lists are just name
+lists and are already fine where they are. What has to move is the public types the
+game touches, because those currently sit in `engine/qg_*.hpp` next to the layouts we
+want hidden. Per module:
+
+| module | public types | to hide |
+|---|---|---|
+| bus | `event_type`, `handler_id`, `event_handler_fn` | `event_bus` |
+| config | `value_type`, `config_value` | `config` |
+| input | `key_code` | `input_state` |
+| memory | `arena_ptr`, `arena_off` | `mem_arena` |
+| parse | `strview`, `SV_FMT`/`SV_ARG`, `sv()` | nothing - no private state |
+| random | none | nothing |
+
+Target shape: **no new files, no renames.** Move the public types up into
+`shared/qg_shared.hpp`. Delete them from the engine headers, which keep everything else
+and include `qg_shared.hpp` for the types they still reference.
 
     shared/
-      shared_types.hpp     u8/i32/f32
-      qg_math.hpp          moved wholesale - pure value types, no engine state
-      qg_bus.hpp           event_type, handler_id, event_handler_fn, BUS_MODULE_DEF
-      qg_config.hpp        value_type, config_value, CONFIG_MODULE_DEF
-      qg_input.hpp         key_code, INPUT_MODULE_DEF
-      qg_memory.hpp        arena_ptr, arena_off, MEMORY_MODULE_DEF
-      shared.hpp           forward decls + engine_api + GAME_MODULE_DEF
+      qg_shared_types.hpp  unchanged - u8/i32/f32
+      qg_math.hpp          moved from engine/ as-is - pure value types, no engine state
+      qg_shared.hpp        the public types from the table above, added alongside the
+                           MODULE_DEFs and engine_api it already holds (~101 -> ~180 lines)
 
     engine/
-      qg_bus_local.hpp     struct event_bus { ... }
-      qg_config_local.hpp  struct config { ... }
-      qg_input_local.hpp   struct input_state { ... }, input_init/update/handle_key
-      qg_memory_local.hpp  struct mem_arena { ... }, align_fwd
+      qg_bus.hpp         struct event_bus + prototypes for bus_init/fire/process/...
+      qg_config.hpp      struct config + its prototypes
+      qg_input.hpp       struct input_state + prototypes, incl. input_init/update/handle_key
+      qg_memory.hpp      struct mem_arena + align_fwd + its prototypes
+      qg_parse.hpp       prototypes only - no private state to hide
+      qg_random.hpp      prototypes + rand_weighted_index(T*, i32) - see below
 
-Each `*_local.hpp` includes its public counterpart so types are declared once.
+Engine headers keep the real function prototypes, not just the layouts: the MODULE_DEF
+X-macro generates struct *fields*, so the engine still needs actual declarations to
+take `&bus_fire` when filling the table.
 
-The game does not need engine headers for *functions* — it already calls everything
+The enforcement is entirely the include path, not the file count. One public header
+per module would work identically, and splitting later is mechanical - it moves
+declarations between files and touches no call sites. Not worth it now: the usual
+argument for splitting headers is incremental compile time, and `~grav.cpp` is a
+unity build, so header granularity buys nothing.
+
+Found while checking this: `rand_weighted_index<T>(T*, i32)` calls `rand_float01()`
+directly - an ambient name resolved at link time, and `qg_random.cpp` is engine-only.
+The game gets an unresolved external if it includes that header. Same latent break as
+`bus_fire_event`. The other overload, `rand_weighted_index(f32 roll, T*, i32)`,
+touches only its parameters and is safe to publish - exactly the `arena_at<T>` vs
+`mem_arena_at<T>` distinction. Move the roll-taking one to `qg_shared.hpp`, leave the
+other engine-side.
+
+The game does not need engine headers for *functions* - it already calls everything
 through `g_api.*`. It includes them today only for *types*, and those are what move.
 
-Result: `event_bus` and `input_state` become fully opaque to the game. `mem_arena`
-becomes opaque once `mem_arena_at` moves behind the table (Phase 2).
+Result: `event_bus` and `input_state` become opaque to the game immediately.
+`mem_arena` follows once `mem_arena_at` moves behind the table (Phase 2, item 11);
+`config` follows once it stops being embedded by value in `game_state` (Phase 3,
+item 18).
 
-Types that must stay public because they cross by value or get read directly:
-`event_type`, `handler_id`, `event_handler_fn`, `key_code`, `config_value`,
-`strview`, `arena_ptr`, `arena_off`. That is the frozen list — small and deliberate.
+Frozen public list - these cross by value or are read directly, so their layouts are
+ABI from here on: `event_type`, `handler_id`, `event_handler_fn`, `key_code`,
+`config_value`, `strview`, `arena_ptr`, `arena_off`. Small and deliberate.
 
 ## Phase 2 — boundary
 

@@ -4,7 +4,7 @@
 #include <direct.h>
 #include <stdlib.h>
 
-#include "shared.hpp"
+#include "qg_shared.hpp"
 #include "qg_config.hpp"
 #include "qg_random.hpp"
 

@@ -1,5 +1,5 @@
 #pragma once
-#include "shared_types.hpp"
+#include "qg_shared_types.hpp"
 
 // ENGINE ======================================
 
@@ -32,9 +32,9 @@ struct input_state;
     X(bool, input_pressed, (input_state*, u8)) \
     X(bool, input_released, (input_state*, u8))
 
-struct mem_arena;
 struct arena_ptr;
 struct arena_off;
+struct mem_arena;
 #define MEMORY_MODULE_DEF \
     X(void*, qg_malloc, (u64)) \
     X(void*, qg_calloc, (u64, u64)) \
@@ -46,7 +46,17 @@ struct arena_off;
     X(arena_ptr, mem_arena_alloc, (mem_arena*, u64, u64)) \
     X(arena_off, mem_arena_offloc, (mem_arena*, u64, u64))
 
-struct strview;
+struct strview {
+    const char* ptr;
+    size_t len;
+};
+
+#define SV_FMT "%.*s"
+#define SV_ARG(sv) (int)sv.len, sv.ptr
+
+static inline strview sv(const char *s) {
+    return { s, strlen(s) };
+}
 #define PARSE_MODULE_DEF \
     X(strview, sv_find, (strview, const char*)) \
     X(u64, sv_split, (strview, const char*, strview*, u64)) \

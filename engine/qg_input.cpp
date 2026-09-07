@@ -1,5 +1,5 @@
 #include "qg_input.hpp"
-#include "shared.hpp"
+#include "qg_shared.hpp"
 #include "SDL3/SDL.h"
 
 #include <cassert>

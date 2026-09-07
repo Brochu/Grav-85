@@ -1,5 +1,5 @@
 #pragma once
-#include "shared_types.hpp"
+#include "qg_shared_types.hpp"
 
 enum class key_code : u16 {
     W, A, S, D, R,

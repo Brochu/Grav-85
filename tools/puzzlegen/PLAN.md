@@ -229,6 +229,6 @@ Invoked via: `compile puzzlegen`
 - `engine/qg_memory.cpp` — arena allocator (included directly, no SDL)
 - `engine/qg_parse.cpp` — string views (included directly, no SDL)
 - `engine/qg_math.hpp` — ivec2, direction, direction_vectors
-- `shared/shared_types.hpp` — u8, i32, f32, etc.
+- `shared/qg_shared_types.hpp` — u8, i32, f32, etc.
 - `config.xml` — add build target
 - `docs/brainstorm.md` — level format spec

@@ -1,5 +1,5 @@
 #pragma once
-#include "shared_types.hpp"
+#include "qg_shared_types.hpp"
 #include "qg_memory.hpp"
 
 // Define your event types here

@@ -1,4 +1,5 @@
 #include "qg_random.hpp"
+
 #include <cassert>
 #include <random>
 

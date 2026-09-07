@@ -12,7 +12,7 @@
 #include "qg_memory.hpp"
 #include "qg_parse.hpp"
 #include "qg_random.hpp"
-#include "shared.hpp"
+#include "qg_shared.hpp"
 
 // ------------- GAMELIB LOADING
 

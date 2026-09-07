@@ -6,7 +6,7 @@
 #include "qg_input.hpp"
 #include "qg_math.hpp"
 #include "qg_memory.hpp"
-#include "shared.hpp"
+#include "qg_shared.hpp"
 
 #include "SDL3/SDL.h"
 
