@@ -1,0 +1,58 @@
+{
+    "version": 4,
+    "configurations": [
+        {
+            "name": "Engine",
+            "compilerPath": "cl.exe",
+            "compilerArgs": [
+                "/EHsc",
+                "/MD"
+            ],
+            "cppStandard": "c++17",
+            "cStandard": "c17",
+            "intelliSenseMode": "windows-msvc-x64",
+            "includePath": [
+                "${workspaceFolder}/engine",
+                "${workspaceFolder}/shared",
+                "${workspaceFolder}/grav",
+                "${workspaceFolder}/libs/SDL3-3.4.0"
+            ],
+            "defines": []
+        },
+        {
+            "name": "Game",
+            "compilerPath": "cl.exe",
+            "compilerArgs": [
+                "/EHsc",
+                "/MD"
+            ],
+            "cppStandard": "c++17",
+            "cStandard": "c17",
+            "intelliSenseMode": "windows-msvc-x64",
+            "includePath": [
+                "${workspaceFolder}/grav",
+                "${workspaceFolder}/shared",
+                "${workspaceFolder}/engine",
+                "${workspaceFolder}/libs/SDL3-3.4.0"
+            ],
+            "defines": []
+        },
+        {
+            "name": "Puzzlegen",
+            "compilerPath": "cl.exe",
+            "compilerArgs": [
+                "/EHsc",
+                "/MD"
+            ],
+            "cppStandard": "c++17",
+            "cStandard": "c17",
+            "intelliSenseMode": "windows-msvc-x64",
+            "includePath": [
+                "${workspaceFolder}/tools/puzzlegen",
+                "${workspaceFolder}/engine",
+                "${workspaceFolder}/shared"
+            ],
+            "defines": []
+        }
+    ]
+}
