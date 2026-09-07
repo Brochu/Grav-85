@@ -148,6 +148,7 @@ struct SDL_Renderer;
 
 // ENGINE ======================================
 struct engine_api {
+    u32 version = 1;
     #define X(ret, name, params) ret (*name) params;
 
     struct { BUS_MODULE_DEF };
@@ -158,7 +159,10 @@ struct engine_api {
     struct { RANDOM_MODULE_DEF };
 
     #undef X
+};
+extern engine_api g_eng;
 
+struct engine_state {
     event_bus *bus;
     input_state *input;
     mem_arena *core_mem;
@@ -167,20 +171,17 @@ struct engine_api {
     SDL_Renderer *context;
 };
 
-extern engine_api g_eng;
-
 // GAME   ======================================
-#define GRAV_API __declspec(dllexport)
+struct game_api {
+    u64 (*game_state_size) (void);
+    void (*game_init) (engine_state *);
+    void (*game_tick) (float);
+    void (*game_draw) (float);
+    void (*game_exit) (void);
+};
 
-extern "C" u64  GRAV_API grav_state_size();
-extern "C" void GRAV_API grav_init(engine_api engine);
-extern "C" void GRAV_API grav_tick(f32 dt);
-extern "C" void GRAV_API grav_draw(f32 dt);
-extern "C" void GRAV_API grav_exit();
+#define GRAV_API __declspec(dllexport)
+extern "C" game_api GRAV_API grav_get_api(engine_api *eng);
 
 #define GAME_MODULE_DEF \
-    X(u64,  game_state_size, "grav_state_size", (void)) \
-    X(void, game_init,       "grav_init",       (engine_api)) \
-    X(void, game_tick,       "grav_tick",       (float)) \
-    X(void, game_draw,       "grav_draw",       (float)) \
-    X(void, game_exit,       "grav_exit",       (void))
+    X(game_api, game_get_api, "grav_get_api", (engine_api))

@@ -88,6 +88,8 @@ bool g_running = true;
 i32 window_width = 800;
 i32 window_height = 600;
 
+game_api g_game;
+
 int main(int argc, char **argv) {
     rand_seed(time(NULL));
 
@@ -119,23 +121,28 @@ int main(int argc, char **argv) {
     PARSE_MODULE_DEF
     RANDOM_MODULE_DEF
     #undef X
+    g_game = game_get_api(g_eng);
+    if (g_game.game_init == nullptr) {
+        g_running = false;
+    }
 
+    engine_state g_state;
     event_bus g_bus {};
     bus_init(&g_bus, 2 * 1024 * 1024);
-    g_eng.bus = &g_bus;
+    g_state.bus = &g_bus;
 
     input_state g_input {};
     input_init(&g_input);
-    g_eng.input = &g_input;
+    g_state.input = &g_input;
 
     mem_arena g_core;
-    mem_arena_init(&g_core, game_state_size());
-    g_eng.core_mem = &g_core;
+    mem_arena_init(&g_core, g_game.game_state_size());
+    g_state.core_mem = &g_core;
 
-    g_eng.context = context;
+    g_state.context = context;
 
     // GAME INIT SEQUENCE
-    game_init(g_eng);
+    g_game.game_init(&g_state);
 
     u64 last_time = SDL_GetTicksNS();
     u64 lag_time = 0;
@@ -180,8 +187,8 @@ int main(int argc, char **argv) {
         input_update(&g_input);
 
         while (lag_time >= NS_PER_FRAME) {
-            game_tick(FRAME_TIME);
-            bus_process(g_eng.bus);
+            g_game.game_tick(FRAME_TIME);
+            bus_process(g_state.bus);
 
             lag_time -= NS_PER_FRAME;
         }
@@ -190,12 +197,12 @@ int main(int argc, char **argv) {
         SDL_SetRenderDrawColor(context, 0, 0, 0, 255);
         SDL_RenderClear(context);
 
-        game_draw(SDL_NS_TO_SECONDS((f32)elapsed));
+        g_game.game_draw(SDL_NS_TO_SECONDS((f32)elapsed));
 
         SDL_RenderPresent(context);
 
     }
-    game_exit();
+    g_game.game_exit();
     gamelib_free();
 
     SDL_DestroyWindow(window);

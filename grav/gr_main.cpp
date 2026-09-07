@@ -11,8 +11,11 @@
 #include "SDL3/SDL.h"
 
 engine_api g_eng {};
+
+event_bus *g_bus {};
 input_state *g_in {};
 mem_arena *g_mem {};
+SDL_Renderer *g_context {};
 
 enum class game_action : u8 {
     GRAVITY_UP, GRAVITY_DOWN, GRAVITY_LEFT, GRAVITY_RIGHT,
@@ -375,14 +378,17 @@ u64 grav_state_size() {
     return sizeof(game_state);
 }
 
-void grav_init(engine_api api) {
-    g_eng = api;
-    g_in = api.input;
-    g_mem = api.core_mem;
+void grav_init(engine_state *eng_state) {
+    g_bus = eng_state->bus;
+    g_in = eng_state->input;
+    g_mem = eng_state->core_mem;
+    g_context = eng_state->context;
 
     // More logic here to make sure we can get the previous game_state in the case of hot reloading
     g_s = (game_state*)g_eng.mem_arena_alloc(g_mem, grav_state_size(), alignof(game_state)).p;
     g_s->phase = game_phase::INIT;
+    g_s->cfg = { 0 };
+    g_s->current_match = { 0 };
 
     // Register key bindings
     auto bind = [&](key_code k, game_action a) {
@@ -518,16 +524,16 @@ void grav_draw(f32 dt) {
     f32 dx = (f32)dir.x * len;
     f32 dy = (f32)dir.y * len;
 
-    SDL_SetRenderDrawColor(g_eng.context, 255, 255, 0, 255);  // yellow
-    SDL_RenderLine(g_eng.context, center_x - dx, center_y - dy, center_x + dx, center_y + dy);
+    SDL_SetRenderDrawColor(g_context, 255, 255, 0, 255);  // yellow
+    SDL_RenderLine(g_context, center_x - dx, center_y - dy, center_x + dx, center_y + dy);
     // arrowhead
     f32 ax = (f32)(-dir.y) * 6.0f;
     f32 ay = (f32)(dir.x) * 6.0f;
-    SDL_RenderLine(g_eng.context, center_x + dx, center_y + dy, center_x + dx*0.5f + ax, center_y + dy*0.5f + ay);
-    SDL_RenderLine(g_eng.context, center_x + dx, center_y + dy, center_x + dx*0.5f - ax, center_y + dy*0.5f - ay);
+    SDL_RenderLine(g_context, center_x + dx, center_y + dy, center_x + dx*0.5f + ax, center_y + dy*0.5f + ay);
+    SDL_RenderLine(g_context, center_x + dx, center_y + dy, center_x + dx*0.5f - ax, center_y + dy*0.5f - ay);
 
     // Render solid walls
-    SDL_SetRenderDrawColor(g_eng.context, EXPAND_COLOR(WALL_COLOR_INDEX));
+    SDL_SetRenderDrawColor(g_context, EXPAND_COLOR(WALL_COLOR_INDEX));
     f32 cell_size = 32;
 
     for (i32 y = 0; y < lvl->height; y++) {
@@ -535,28 +541,28 @@ void grav_draw(f32 dt) {
             ivec2 p { x, y };
             if (level_is_solid(lvl, p)) {
                 SDL_FRect r { x*cell_size, y*cell_size, cell_size-5, cell_size-5 };
-                SDL_RenderFillRect(g_eng.context, &r);
+                SDL_RenderFillRect(g_context, &r);
             }
         }
     }
 
     // Render elements crates and gems
-    SDL_SetRenderDrawColor(g_eng.context, EXPAND_COLOR(CRATE_COLOR_INDEX));
+    SDL_SetRenderDrawColor(g_context, EXPAND_COLOR(CRATE_COLOR_INDEX));
     for (i32 i = 0; i < att->num_crates; i++) {
         auto [x, y] = att->crates[i];
         auto [ox, oy] = att->crate_offsets[i];
         SDL_FRect r { (x+ox)*cell_size, (y+oy)*cell_size, cell_size-5, cell_size-5 };
-        SDL_RenderFillRect(g_eng.context, &r);
+        SDL_RenderFillRect(g_context, &r);
     }
 
     for (i32 i = 0; i < att->num_gems; i++) {
         if (!((att->gems_active >> i) & 1)) continue;
-        SDL_SetRenderDrawColor(g_eng.context, EXPAND_COLOR((i32)lvl->gem_colors[i]));
+        SDL_SetRenderDrawColor(g_context, EXPAND_COLOR((i32)lvl->gem_colors[i]));
 
         auto [x, y] = att->gems[i];
         auto [ox, oy] = att->gem_offsets[i];
         SDL_FRect r { (x+ox)*cell_size, (y+oy)*cell_size, cell_size-5, cell_size-5 };
-        SDL_RenderFillRect(g_eng.context, &r);
+        SDL_RenderFillRect(g_context, &r);
     }
     //TODO: Need to rework rendering to a lower level so I could take advantage of instanced rendering here
     //TODO: Could also look into baking the background once and reusing it with one copy operation per frame
@@ -565,4 +571,21 @@ void grav_draw(f32 dt) {
 void grav_exit() {
     match_close(&g_s->current_match);
     g_eng.config_free(&g_s->cfg);
+}
+
+game_api grav_get_api(engine_api *eng) {
+    static u32 expected_engine = 1;
+    if (eng->version != expected_engine) {
+        return { 0 };
+    }
+
+    g_eng = *eng;
+
+    return {
+        &grav_state_size,
+        &grav_init,
+        &grav_tick,
+        &grav_draw,
+        &grav_exit,
+    };
 }
