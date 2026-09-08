@@ -2,9 +2,7 @@
 #include <cstdio>
 #include <cstring>
 
-#include "qg_config.hpp"
 #include "qg_math.hpp"
-#include "qg_memory.hpp"
 #include "qg_shared.hpp"
 
 #include "SDL3/SDL.h"
@@ -243,7 +241,7 @@ struct match {
     i8 num_levels;
     i8 num_players;
 
-    mem_arena _scratch;
+    mem_arena *_scratch;
 };
 
 void match_read_level(level *lvl, u8 *data, u64 length) {
@@ -274,26 +272,26 @@ void match_read_level(level *lvl, u8 *data, u64 length) {
 }
 
 void match_init(match *match, i8 num_players, u8 *data, u64 length) {
-    if (match->_scratch.base == nullptr) {
+    if (match->_scratch == nullptr) {
         u64 required_mem = 
             sizeof(level) * NUM_LEVEL_PER_MATCH + // Each level of the match
             sizeof(attempt) * NUM_LEVEL_PER_MATCH * num_players + // Each attempts / level / player
             sizeof(i8) * num_players + // Current level / player
             64;
-        g_eng.mem_arena_init(&match->_scratch, required_mem);
+        match->_scratch = g_eng.mem_arena_create(required_mem);
     } else {
-        g_eng.mem_arena_reset(&match->_scratch);
+        g_eng.mem_arena_reset(match->_scratch);
     }
 
     match->num_levels = NUM_LEVEL_PER_MATCH;
-    match->levels = (level*)g_eng.mem_arena_alloc(&match->_scratch, sizeof(level) * NUM_LEVEL_PER_MATCH, alignof(level)).p;
+    match->levels = (level*)g_eng.mem_arena_alloc(match->_scratch, sizeof(level) * NUM_LEVEL_PER_MATCH, alignof(level)).p;
     for (i32 i = 0; i < NUM_LEVEL_PER_MATCH; i++) {
         match_read_level(&match->levels[i], &data[i * BYTES_PER_LEVEL], BYTES_PER_LEVEL);
     }
-    match->level_indices = (i8*)g_eng.mem_arena_alloc(&match->_scratch, sizeof(i8) * num_players, alignof(i8)).p;
+    match->level_indices = (i8*)g_eng.mem_arena_alloc(match->_scratch, sizeof(i8) * num_players, alignof(i8)).p;
 
     match->num_players = num_players;
-    match->attempts = (attempt*)g_eng.mem_arena_alloc(&match->_scratch, sizeof(attempt) * NUM_LEVEL_PER_MATCH * num_players, alignof(attempt)).p;
+    match->attempts = (attempt*)g_eng.mem_arena_alloc(match->_scratch, sizeof(attempt) * NUM_LEVEL_PER_MATCH * num_players, alignof(attempt)).p;
     for (i32 i = 0; i < num_players; i++) {
         match->level_indices[i] = 0;
 
@@ -314,7 +312,8 @@ void match_close(match *match) {
     match->num_levels = 0;
     match->num_players = 0;
 
-    g_eng.mem_arena_clear(&match->_scratch);
+    g_eng.mem_arena_destroy(match->_scratch);
+    match->_scratch = nullptr;
 }
 
 enum class game_event_type : u16 {
@@ -363,7 +362,7 @@ enum class game_phase : u8 {
 struct game_state {
     game_phase phase;
 
-    config      cfg;
+    config     *cfg;
     f32         gravity_speed;
 
     match       current_match;
@@ -412,9 +411,9 @@ void grav_init(engine_state *eng_state) {
     bind(key_code::PAGE_UP,  game_action::DEBUG_PREV_LEVEL);
     bind(key_code::PAGE_DOWN, game_action::DEBUG_NEXT_LEVEL);
 
-    g_eng.config_init(&g_s->cfg, "assets/game.cfg");
+    g_s->cfg = g_eng.config_create("assets/game.cfg", g_mem);
     config_value val;
-    if (g_eng.config_read(&g_s->cfg, "gravity_speed", &val)) {
+    if (g_eng.config_read(g_s->cfg, "gravity_speed", &val)) {
         g_s->gravity_speed = val.flt;
     }
     printf("[GAME] Loaded config; g_gravity_speed = %f\n", g_s->gravity_speed);
@@ -566,7 +565,7 @@ void grav_draw(f32 dt) {
 
 void grav_exit() {
     match_close(&g_s->current_match);
-    g_eng.config_free(&g_s->cfg);
+    g_eng.config_destroy(g_s->cfg);
 }
 
 game_api grav_get_api(engine_api *eng) {

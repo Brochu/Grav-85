@@ -1,5 +1,6 @@
-#include "qg_memory.hpp"
+﻿#include "qg_memory.hpp"
 #include <cstdlib>
+#include <cstddef>
 
 //TODO: Add memory tracking w/ profiler? Tracy
 void *qg_malloc(u64 size) {
@@ -20,6 +21,7 @@ void qg_free(void *ptr) {
 
 // MEMORY ARENA -----------------------------------
 
+static const u64 ARENA_HEADER_ALIGN = alignof(std::max_align_t);
 static inline u64 align_fwd(u64 ptr, u64 align) {
     assert((align & (align - 1)) == 0 && "alignment must be power of two");
 
@@ -27,14 +29,20 @@ static inline u64 align_fwd(u64 ptr, u64 align) {
     return (ptr + m) & ~m;
 }
 
-void mem_arena_init(mem_arena *arena, u64 max_size) {
-    arena->base = (u8*)qg_calloc(1, max_size);
-    if (arena->base == nullptr) {
+mem_arena *mem_arena_create(u64 max_size) {
+    u64 header_size = align_fwd(sizeof(mem_arena), ARENA_HEADER_ALIGN);
+    u8 *alloc = (u8 *)qg_calloc(1, header_size + max_size);
+    if (alloc == nullptr) {
         assert(false && "ASSERT: Could not allocate new mem_arena");
+        return nullptr;
     }
+    mem_arena *arena = (mem_arena *)alloc;
+
+    arena->base = alloc + header_size;
     arena->next = 0;
     arena->cap = max_size;
     arena->gen = 1;
+    return arena;
 }
 
 void mem_arena_reset(mem_arena *arena) {
@@ -43,14 +51,15 @@ void mem_arena_reset(mem_arena *arena) {
     arena->gen++;
 }
 
-void mem_arena_clear(mem_arena *arena) {
-    //TODO: Maybe adding tracking information here, updated only for debug builds
-    qg_free(arena->base);
-    arena->base = nullptr;
+void mem_arena_destroy(mem_arena *arena) {
+    if (arena == nullptr) return;
 
+    //TODO: Maybe adding tracking information here, updated only for debug builds
+    arena->base = nullptr;
     arena->next = 0;
     arena->cap = 0;
     arena->gen++;
+    qg_free(arena);
 }
 
 arena_ptr mem_arena_alloc(mem_arena *arena, u64 size, u64 align) {

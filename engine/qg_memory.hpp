@@ -18,9 +18,9 @@ struct mem_arena {
     //TODO: Maybe adding tracking information here, updated only for debug builds
 };
 
-void mem_arena_init(mem_arena *arena, u64 max_size);
+mem_arena *mem_arena_create(u64 max_size);
 void mem_arena_reset(mem_arena *arena);
-void mem_arena_clear(mem_arena *arena);
+void mem_arena_destroy(mem_arena *arena);
 
 arena_ptr mem_arena_alloc(mem_arena *arena, u64 size, u64 align = sizeof(void *));
 arena_off mem_arena_offloc(mem_arena *arena, u64 size, u64 align = sizeof(void *));

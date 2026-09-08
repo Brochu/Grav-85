@@ -1,4 +1,5 @@
 #include "qg_input.hpp"
+#include "qg_memory.hpp"
 #include "qg_shared.hpp"
 #include "SDL3/SDL.h"
 
@@ -11,12 +12,23 @@ static const i32 g_keycode_map[(u16)key_code::COUNT] = {
     SDLK_PAGEUP, SDLK_PAGEDOWN,
 };
 
-void input_init(input_state* state) {
+input_state *input_create(mem_arena *arena) {
+    input_state *state = (input_state *)mem_arena_alloc(arena, sizeof(input_state)).p;
+    if (state == nullptr) {
+        assert(false && "ASSERT: Could not allocate new input_state");
+        return nullptr;
+    }
+
     state->down = 0;
     state->pressed = 0;
     state->released = 0;
     state->prev_down = 0;
     state->binding_count = 0;
+    return state;
+}
+
+void input_destroy(input_state* state) {
+    // no op?
 }
 
 void input_update(input_state* state) {

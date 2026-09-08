@@ -14,7 +14,8 @@ struct input_state {
 };
 
 // Engine-internal functions (not exposed to game via module def)
-void input_init(input_state* state);
+input_state *input_create(mem_arena *arena);
+void input_destroy(input_state* state);
 void input_update(input_state* state);
 void input_handle_key(input_state* state, i32 keycode, bool is_down);
 

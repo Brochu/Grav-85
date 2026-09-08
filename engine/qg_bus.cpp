@@ -1,8 +1,14 @@
 #include "qg_bus.hpp"
 #include <cstring>
 
-void bus_init(event_bus* bus, u64 arena_capacity) {
-    mem_arena_init(&bus->event_arena, arena_capacity);
+event_bus *bus_create(u64 arena_capacity, mem_arena *arena) {
+    event_bus *bus = (event_bus *)mem_arena_alloc(arena, sizeof(event_bus)).p;
+    if (bus == nullptr) {
+        assert(false && "ASSERT: Could not allocate new event_bus");
+        return nullptr;
+    }
+
+    bus->event_arena = mem_arena_create(arena_capacity);
 
     bus->head = 0;
     bus->tail = 0;
@@ -17,10 +23,13 @@ void bus_init(event_bus* bus, u64 arena_capacity) {
             bus->handlers[i][j].active = false;
         }
     }
+    return bus;
 }
 
-void bus_free(event_bus* bus) {
-    mem_arena_clear(&bus->event_arena);
+void bus_destroy(event_bus* bus) {
+    if (bus == nullptr) return;
+
+    mem_arena_destroy(bus->event_arena);
 }
 
 handler_id bus_subscribe(event_bus* bus, event_type type, event_handler_fn handler, void* user_data) {
@@ -100,7 +109,7 @@ bool bus_fire(event_bus* bus, event_type type, const void* data, u32 data_size) 
     }
 
     // Allocate space in arena for event data
-    arena_ptr event_data = mem_arena_alloc(&bus->event_arena, data_size, alignof(void*));
+    arena_ptr event_data = mem_arena_alloc(bus->event_arena, data_size, alignof(void*));
 
     if (event_data.p == nullptr) {
         // Arena is full
@@ -163,5 +172,5 @@ void bus_process(event_bus* bus) {
 void bus_reset(event_bus* bus) {
     bus->head = 0;
     bus->tail = 0;
-    mem_arena_reset(&bus->event_arena);
+    mem_arena_reset(bus->event_arena);
 }

@@ -82,14 +82,11 @@ struct event_bus {
     u32 handler_counts[(u32)event_type::COUNT];
 
     // Memory for event data
-    mem_arena event_arena;
+    mem_arena *event_arena;
 };
 
-// Initialize the event bus with arena capacity
-void bus_init(event_bus* bus, u64 arena_capacity);
-
-// Cleanup
-void bus_free(event_bus* bus);
+event_bus *bus_create(u64 arena_capacity, mem_arena *arena);
+void bus_destroy(event_bus* bus);
 
 // Subscribe to an event type
 // Returns handler_id that can be used to unsubscribe

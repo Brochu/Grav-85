@@ -7,8 +7,15 @@
 
 #define CONFIG_ALLOC_SIZE 1024*2
 
-void config_init(config *c, const char *file) {
-    mem_arena_init(&c->_mem_vals, CONFIG_ALLOC_SIZE);
+config *config_create(const char *file, mem_arena *arena) {
+    arena_ptr c_ptr = mem_arena_alloc(arena, sizeof(config));
+    config *c = (config *)c_ptr.p;
+    if (c == nullptr) {
+        assert(false && "ASSERT: Could not allocate new config");
+        return nullptr;
+    }
+
+    c->_mem_vals = mem_arena_create(CONFIG_ALLOC_SIZE);
 
     u64 file_size = 0;
     char *content = (char *)SDL_LoadFile(file, &file_size);
@@ -26,12 +33,12 @@ void config_init(config *c, const char *file) {
         if (res) {
             assert(c->num_entries < CONFIG_NUM_KEYS);
 
-            arena_ptr pname = mem_arena_alloc(&c->_mem_vals, l.len+1, 1);
+            arena_ptr pname = mem_arena_alloc(c->_mem_vals, l.len+1, 1);
             strncpy_s((char*)pname.p, l.len+1, l.ptr, l.len);
             c->keys[c->num_entries] = (const char*)pname.p;
 
 
-            config_value *val = (config_value*)mem_arena_alloc(&c->_mem_vals, sizeof(config_value)).p;
+            config_value *val = (config_value*)mem_arena_alloc(c->_mem_vals, sizeof(config_value)).p;
             if (r.ptr[0] == '[') {
                 val->type = value_type::RANGE;
                 strview min, max;
@@ -41,7 +48,7 @@ void config_init(config *c, const char *file) {
             }
             else if (r.ptr[0] == '"') {
                 val->type = value_type::STRING;
-                arena_ptr str = mem_arena_alloc(&c->_mem_vals, r.len-1, 1);
+                arena_ptr str = mem_arena_alloc(c->_mem_vals, r.len-1, 1);
                 strncpy_s((char*)str.p, r.len-1, r.ptr+1, r.len-2);
                 val->str.arr = (char*)str.p;
                 val->str.len = r.len-2;
@@ -52,7 +59,7 @@ void config_init(config *c, const char *file) {
                 u64 num = sv_split(r, ",", elem, 64);
                 assert(num > 0);
 
-                val->array.arr = (i32*)mem_arena_alloc(&c->_mem_vals, sizeof(i32) * num).p;
+                val->array.arr = (i32*)mem_arena_alloc(c->_mem_vals, sizeof(i32) * num).p;
                 for (int i = 0; i < num; i++) {
                     val->array.arr[i] = atoi(elem[i].ptr);
                 }
@@ -77,13 +84,18 @@ void config_init(config *c, const char *file) {
     }
 
     SDL_free(content);
+    return c;
 }
 
-void config_free(config *c) {
-    mem_arena_clear(&c->_mem_vals);
+void config_destroy(config *c) {
+    if (c == nullptr) return;
+
+    mem_arena_destroy(c->_mem_vals);
 }
 
 bool config_read(config *c, const char *key, config_value *out) {
+    if (c == nullptr) return false;
+
     for (int i = 0; i < c->num_entries; i++) {
         if (strcmp(c->keys[i], key) == 0) {
             *out = *c->values[i];

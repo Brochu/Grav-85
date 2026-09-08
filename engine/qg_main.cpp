@@ -83,6 +83,7 @@ void gamelib_refresh() {
 static const u64 NS_PER_FRAME = (1000 * 1000 * 1000 / WINDOW_FPS);
 static const u64 MAX_LAG_TIME = NS_PER_FRAME * 5; // Cap catchup to 5 ticks
 static const f32 FRAME_TIME = SDL_NS_TO_SECONDS((f32)NS_PER_FRAME);
+static const u64 CORE_MEM_SIZE = 2 * 1024 * 1024;
 
 bool g_running = true;
 i32 window_width = 800;
@@ -128,19 +129,15 @@ int main(int argc, char **argv) {
     }
 
     engine_state g_state {};
-    event_bus g_bus {};
-    bus_init(&g_bus, 2 * 1024 * 1024);
-    g_state.bus = &g_bus;
+    g_state.core_mem = mem_arena_create(g_game.game_state_size() + CORE_MEM_SIZE);
+    g_state.bus      = bus_create(CORE_MEM_SIZE, g_state.core_mem);
+    g_state.input    = input_create(g_state.core_mem);
+    g_state.context  = context;
 
-    input_state g_input {};
-    input_init(&g_input);
-    g_state.input = &g_input;
-
-    mem_arena g_core;
-    mem_arena_init(&g_core, g_game.game_state_size());
-    g_state.core_mem = &g_core;
-
-    g_state.context = context;
+    if (g_state.bus == nullptr || g_state.input == nullptr || g_state.core_mem == nullptr) {
+        printf("Could not allocate engine state.\n");
+        return EXIT_FAILURE;
+    }
 
     // GAME INIT SEQUENCE
     g_game.game_init(&g_state);
@@ -164,10 +161,10 @@ int main(int argc, char **argv) {
                 g_running = false;
             }
             if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat) {
-                input_handle_key(&g_input, event.key.key, true);
+                input_handle_key(g_state.input, event.key.key, true);
             }
             if (event.type == SDL_EVENT_KEY_UP) {
-                input_handle_key(&g_input, event.key.key, false);
+                input_handle_key(g_state.input, event.key.key, false);
             }
             if (event.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED) {
                 i32 new_width = 0;
@@ -181,11 +178,11 @@ int main(int argc, char **argv) {
                     e.old_height = window_height;
                     e.new_width = new_width;
                     e.new_height = new_height;
-                    bus_fire_event((&g_eng), &g_bus, event_type::RENDER_RESOLUTION_CHANGED, e);
+                    bus_fire_event((&g_eng), g_state.bus, event_type::RENDER_RESOLUTION_CHANGED, e);
                 }
             }
         }
-        input_update(&g_input);
+        input_update(g_state.input);
 
         while (lag_time >= NS_PER_FRAME) {
             g_game.game_tick(FRAME_TIME);
@@ -205,6 +202,10 @@ int main(int argc, char **argv) {
     }
     g_game.game_exit();
     gamelib_free();
+
+    input_destroy(g_state.input);
+    bus_destroy(g_state.bus);
+    mem_arena_destroy(g_state.core_mem);
 
     SDL_DestroyWindow(window);
     SDL_Quit();

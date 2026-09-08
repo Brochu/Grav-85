@@ -3,7 +3,29 @@
 
 #include <cstring>
 
-struct engine_api; // This will exist
+struct engine_api;
+
+// MEM    ======================================
+struct arena_ptr {
+    u8 *p;
+    u64 gen;
+};
+struct arena_off {
+    u64 off;
+    u64 gen;
+};
+struct mem_arena;
+#define MEMORY_MODULE_DEF \
+    X(void*, qg_malloc, (u64)) \
+    X(void*, qg_calloc, (u64, u64)) \
+    X(void*, qg_realloc, (void*, u64)) \
+    X(void, qg_free, (void*)) \
+    X(mem_arena*, mem_arena_create, (u64)) \
+    X(void, mem_arena_reset, (mem_arena*)) \
+    X(void, mem_arena_destroy, (mem_arena*)) \
+    X(arena_ptr, mem_arena_alloc, (mem_arena*, u64, u64)) \
+    X(arena_off, mem_arena_offloc, (mem_arena*, u64, u64)) \
+    X(void *, mem_arena_at, (mem_arena*, arena_off))
 
 // EVENTS ======================================
 // Define your event types here
@@ -56,8 +78,8 @@ struct handler_id {
 typedef void (*event_handler_fn)(event_type type, void* data, void* user_data);
 struct event_bus;
 #define BUS_MODULE_DEF \
-    X(void, bus_init, (event_bus*, u64)) \
-    X(void, bus_free, (event_bus*)) \
+    X(event_bus*, bus_create, (u64, mem_arena *)) \
+    X(void, bus_destroy, (event_bus*)) \
     X(handler_id, bus_subscribe, (event_bus*, event_type, event_handler_fn, void*)) \
     X(bool, bus_unsubscribe, (event_bus*, handler_id)) \
     X(bool, bus_fire, (event_bus*, event_type, const void*, u32)) \
@@ -81,9 +103,9 @@ struct config_value {
 };
 struct config;
 #define CONFIG_MODULE_DEF \
-    X(void, config_init, (config*, const char*)) \
-    X(void, config_free, (config*)) \
-    X(bool, config_read, (config*, const char*, config_value*))
+    X(config *, config_create, (const char *, mem_arena *)) \
+    X(void, config_destroy, (config *)) \
+    X(bool, config_read, (config *, const char *, config_value *))
 
 // INPUT  ======================================
 enum class key_code : u16 {
@@ -99,33 +121,6 @@ struct input_state;
     X(bool, input_down, (input_state*, u8)) \
     X(bool, input_pressed, (input_state*, u8)) \
     X(bool, input_released, (input_state*, u8))
-
-// MEM    ======================================
-struct arena_ptr {
-    u8 *p;
-    u64 gen;
-};
-struct arena_off {
-    u64 off;
-    u64 gen;
-};
-struct mem_arena;
-
-template<class T>
-static inline T *mem_arena_at(engine_api *api, mem_arena *arena, arena_off offset) {
-    return reinterpret_cast<T *>(api->mem_arena_at(arena, offset));
-}
-#define MEMORY_MODULE_DEF \
-    X(void*, qg_malloc, (u64)) \
-    X(void*, qg_calloc, (u64, u64)) \
-    X(void*, qg_realloc, (void*, u64)) \
-    X(void, qg_free, (void*)) \
-    X(void, mem_arena_init, (mem_arena*, u64)) \
-    X(void, mem_arena_reset, (mem_arena*)) \
-    X(void, mem_arena_clear, (mem_arena*)) \
-    X(arena_ptr, mem_arena_alloc, (mem_arena*, u64, u64)) \
-    X(arena_off, mem_arena_offloc, (mem_arena*, u64, u64)) \
-    X(void *, mem_arena_at, (mem_arena*, arena_off))
 
 // PARSE  ======================================
 struct strview {
@@ -170,6 +165,13 @@ struct engine_api {
 
     #undef X
 };
+
+// api-> does not depend on T, so it is looked up at definition time:
+// engine_api must be complete here, not merely declared.
+template<class T>
+static inline T *mem_arena_at(engine_api *api, mem_arena *arena, arena_off offset) {
+    return reinterpret_cast<T *>(api->mem_arena_at(arena, offset));
+}
 
 struct engine_state {
     event_bus *bus;
