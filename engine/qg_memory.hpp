@@ -25,8 +25,4 @@ void mem_arena_clear(mem_arena *arena);
 arena_ptr mem_arena_alloc(mem_arena *arena, u64 size, u64 align = sizeof(void *));
 arena_off mem_arena_offloc(mem_arena *arena, u64 size, u64 align = sizeof(void *));
 
-template<class T>
-static inline T *mem_arena_at(mem_arena *arena, arena_off offset) {
-    assert(arena->gen == offset.gen && "Trying to access stale offset in arena");
-    return reinterpret_cast<T *>(arena->base + offset.off);
-}
+void *mem_arena_at(mem_arena *arena, arena_off off);

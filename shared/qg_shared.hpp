@@ -3,6 +3,8 @@
 
 #include <cstring>
 
+struct engine_api; // This will exist
+
 // EVENTS ======================================
 // Define your event types here
 enum class event_type : u8 {
@@ -108,6 +110,11 @@ struct arena_off {
     u64 gen;
 };
 struct mem_arena;
+
+template<class T>
+static inline T *mem_arena_at(engine_api *api, mem_arena *arena, arena_off offset) {
+    return reinterpret_cast<T *>(api->mem_arena_at(arena, offset));
+}
 #define MEMORY_MODULE_DEF \
     X(void*, qg_malloc, (u64)) \
     X(void*, qg_calloc, (u64, u64)) \
@@ -117,7 +124,8 @@ struct mem_arena;
     X(void, mem_arena_reset, (mem_arena*)) \
     X(void, mem_arena_clear, (mem_arena*)) \
     X(arena_ptr, mem_arena_alloc, (mem_arena*, u64, u64)) \
-    X(arena_off, mem_arena_offloc, (mem_arena*, u64, u64))
+    X(arena_off, mem_arena_offloc, (mem_arena*, u64, u64)) \
+    X(void *, mem_arena_at, (mem_arena*, arena_off))
 
 // PARSE  ======================================
 struct strview {
@@ -147,8 +155,10 @@ static inline strview sv(const char *s) {
 struct SDL_Renderer;
 
 // ENGINE ======================================
+#define QG_ENGINE_VERSION 1
+
 struct engine_api {
-    u32 version = 1;
+    u32 version = QG_ENGINE_VERSION;
     #define X(ret, name, params) ret (*name) params;
 
     struct { BUS_MODULE_DEF };
@@ -160,7 +170,6 @@ struct engine_api {
 
     #undef X
 };
-extern engine_api g_eng;
 
 struct engine_state {
     event_bus *bus;

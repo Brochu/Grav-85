@@ -106,8 +106,8 @@ bool bus_fire(event_bus* bus, event_type type, const void* data, u32 data_size);
 
 // Macro helper for type-safe event firing
 // Usage: bus_fire_event(&bus, event_type::PLAYER_DAMAGED, my_event_struct)
-#define bus_fire_event(bus, type, event_data) \
-    g_eng.bus_fire(bus, type, &(event_data), sizeof(event_data))
+#define bus_fire_event(api, bus, type, event_data) \
+    api->bus_fire(bus, type, &(event_data), sizeof(event_data))
 
 // Process all queued events and dispatch to handlers
 // Call this at the end of each frame

@@ -123,10 +123,11 @@ int main(int argc, char **argv) {
     #undef X
     g_game = game_get_api(&g_eng);
     if (g_game.game_init == nullptr) {
-        g_running = false;
+        printf("Mismatched engine versions.\n");
+        return EXIT_FAILURE;
     }
 
-    engine_state g_state;
+    engine_state g_state {};
     event_bus g_bus {};
     bus_init(&g_bus, 2 * 1024 * 1024);
     g_state.bus = &g_bus;
@@ -180,7 +181,7 @@ int main(int argc, char **argv) {
                     e.old_height = window_height;
                     e.new_width = new_width;
                     e.new_height = new_height;
-                    bus_fire_event(&g_bus, event_type::RENDER_RESOLUTION_CHANGED, e);
+                    bus_fire_event((&g_eng), &g_bus, event_type::RENDER_RESOLUTION_CHANGED, e);
                 }
             }
         }

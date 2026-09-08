@@ -28,7 +28,7 @@ static inline u64 align_fwd(u64 ptr, u64 align) {
 }
 
 void mem_arena_init(mem_arena *arena, u64 max_size) {
-    arena->base = (u8*)qg_malloc(max_size);
+    arena->base = (u8*)qg_calloc(1, max_size);
     if (arena->base == nullptr) {
         assert(false && "ASSERT: Could not allocate new mem_arena");
     }
@@ -76,4 +76,9 @@ arena_off mem_arena_offloc(mem_arena *arena, u64 size, u64 align) {
 
     arena->next = off + size;
     return { off, arena->gen };
+}
+
+void *mem_arena_at(mem_arena *arena, arena_off off) {
+    assert(arena->gen == off.gen && "Trying to access stale offset in arena");
+    return reinterpret_cast<void *>(arena->base + off.off);
 }

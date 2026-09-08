@@ -1,9 +1,8 @@
+#include <cassert>
 #include <cstdio>
 #include <cstring>
 
-#include "qg_bus.hpp"
 #include "qg_config.hpp"
-#include "qg_input.hpp"
 #include "qg_math.hpp"
 #include "qg_memory.hpp"
 #include "qg_shared.hpp"
@@ -386,9 +385,6 @@ void grav_init(engine_state *eng_state) {
 
     // More logic here to make sure we can get the previous game_state in the case of hot reloading
     g_s = (game_state*)g_eng.mem_arena_alloc(g_mem, grav_state_size(), alignof(game_state)).p;
-    g_s->phase = game_phase::INIT;
-    g_s->cfg = { 0 };
-    g_s->current_match = { 0 };
 
     // Register key bindings
     auto bind = [&](key_code k, game_action a) {
@@ -574,8 +570,7 @@ void grav_exit() {
 }
 
 game_api grav_get_api(engine_api *eng) {
-    static u32 expected_engine = 1;
-    if (eng->version != expected_engine) {
+    if (eng->version != QG_ENGINE_VERSION) {
         return { 0 };
     }
 
